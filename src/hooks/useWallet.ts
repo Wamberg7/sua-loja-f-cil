@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Transaction, Withdrawal, WalletBalance } from "@/lib/types";
+import { WalletBalance, Wallet } from "@/lib/types";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -12,157 +12,90 @@ export const useWalletBalance = () => {
     queryFn: async (): Promise<WalletBalance> => {
       if (!store?.id) return { available: 0, pending: 0, reserved: 0 };
       
-      // Get completed transactions (available)
-      const { data: completedTx } = await supabase
-        .from("transactions")
-        .select("amount")
+      const { data, error } = await supabase
+        .from("wallets" as never)
+        .select("*")
         .eq("store_id", store.id)
-        .eq("status", "completed")
-        .eq("type", "sale");
+        .maybeSingle();
       
-      // Get pending transactions
-      const { data: pendingTx } = await supabase
-        .from("transactions")
-        .select("amount")
-        .eq("store_id", store.id)
-        .eq("status", "pending")
-        .eq("type", "sale");
+      if (error) {
+        console.error("Error fetching wallet:", error);
+        return { available: 0, pending: 0, reserved: 0 };
+      }
       
-      // Get pending withdrawals (reserved)
-      const { data: pendingWithdrawals } = await supabase
-        .from("withdrawals")
-        .select("amount")
-        .eq("store_id", store.id)
-        .eq("status", "pending");
-      
-      const available = (completedTx || []).reduce((sum, tx) => sum + Number(tx.amount), 0);
-      const pending = (pendingTx || []).reduce((sum, tx) => sum + Number(tx.amount), 0);
-      const reserved = (pendingWithdrawals || []).reduce((sum, w) => sum + Number(w.amount), 0);
+      if (!data) {
+        return { available: 0, pending: 0, reserved: 0 };
+      }
+
+      const wallet = data as unknown as Wallet;
       
       return {
-        available: available - reserved,
-        pending,
-        reserved,
+        available: wallet.available || 0,
+        pending: wallet.pending || 0,
+        reserved: wallet.reserved || 0,
       };
     },
     enabled: !!store?.id,
   });
 };
 
-export const useTransactions = () => {
+export const useWallet = () => {
   const { store } = useAuth();
 
   return useQuery({
-    queryKey: ["wallet", "transactions", store?.id],
+    queryKey: ["wallet", store?.id],
     queryFn: async () => {
-      if (!store?.id) return [];
+      if (!store?.id) return null;
       
       const { data, error } = await supabase
-        .from("transactions")
+        .from("wallets" as never)
         .select("*")
         .eq("store_id", store.id)
-        .order("created_at", { ascending: false });
+        .maybeSingle();
       
       if (error) throw new Error(error.message);
-      return (data || []) as Transaction[];
+      return data as unknown as Wallet | null;
     },
     enabled: !!store?.id,
   });
 };
 
-export const useWithdrawals = () => {
-  const { store } = useAuth();
-
+export const useAllWallets = () => {
   return useQuery({
-    queryKey: ["wallet", "withdrawals", store?.id],
+    queryKey: ["wallets", "all"],
     queryFn: async () => {
-      if (!store?.id) return [];
-      
       const { data, error } = await supabase
-        .from("withdrawals")
-        .select("*")
-        .eq("store_id", store.id)
+        .from("wallets" as never)
+        .select("*, store:stores(name, slug)")
         .order("created_at", { ascending: false });
       
       if (error) throw new Error(error.message);
-      return (data || []) as Withdrawal[];
+      return (data || []) as unknown as (Wallet & { store: { name: string; slug: string } })[];
     },
-    enabled: !!store?.id,
   });
 };
 
-export const useCreateWithdrawal = () => {
+export const useApproveWallet = () => {
   const queryClient = useQueryClient();
-  const { store } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ amount, pix_key, pix_key_type }: { amount: number; pix_key: string; pix_key_type: string }) => {
-      if (!store?.id) throw new Error("Loja não encontrada");
-      
+    mutationFn: async (walletId: string) => {
       const { data, error } = await supabase
-        .from("withdrawals")
-        .insert({
-          store_id: store.id,
-          amount,
-          pix_key,
-          pix_key_type,
-          status: "pending",
-        })
+        .from("wallets" as never)
+        .update({ is_approved: true } as never)
+        .eq("id", walletId)
         .select()
         .single();
       
       if (error) throw new Error(error.message);
-      return data as Withdrawal;
+      return data as unknown as Wallet;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["wallet"] });
-      toast.success("Solicitação de saque enviada!");
+      queryClient.invalidateQueries({ queryKey: ["wallets"] });
+      toast.success("Carteira aprovada com sucesso!");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Erro ao solicitar saque");
-    },
-  });
-};
-
-export const usePayoutDetails = () => {
-  const { store } = useAuth();
-
-  return useQuery({
-    queryKey: ["wallet", "payout-details", store?.id],
-    queryFn: async () => {
-      if (!store?.id) return null;
-      
-      // Get the most recent withdrawal to get payout details
-      const { data, error } = await supabase
-        .from("withdrawals")
-        .select("pix_key, pix_key_type")
-        .eq("store_id", store.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    enabled: !!store?.id,
-  });
-};
-
-export const useUpdatePayoutDetails = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (details: { pix_key: string; pix_key_type: string }) => {
-      // Store payout details in profile or a separate table
-      // For now, we just invalidate the query
-      return details;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["wallet", "payout-details"] });
-      toast.success("Dados de saque atualizados!");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Erro ao atualizar dados");
+      toast.error(error.message || "Erro ao aprovar carteira");
     },
   });
 };

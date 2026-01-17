@@ -1,26 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
-
-interface Profile {
-  id: string;
-  user_id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  avatar_url?: string;
-}
-
-interface Store {
-  id: string;
-  user_id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  logo_url?: string;
-  category?: string;
-  is_active: boolean;
-}
+import { Profile, Store } from "@/lib/types";
 
 interface AuthContextType {
   user: User | null;
@@ -45,24 +26,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (profileData) {
-      setProfile(profileData as Profile);
-    }
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+      } else if (profileData) {
+        setProfile(profileData as unknown as Profile);
+      }
 
-    const { data: storeData } = await supabase
-      .from('stores')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (storeData) {
-      setStore(storeData as Store);
+      const { data: storeData, error: storeError } = await supabase
+        .from('stores')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (storeError) {
+        console.error("Error fetching store:", storeError);
+      } else if (storeData) {
+        setStore(storeData as unknown as Store);
+      }
+    } catch (error) {
+      console.error("Error in fetchProfile:", error);
     }
   }, []);
 
@@ -110,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -120,8 +109,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || "Erro ao fazer login" };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Erro ao fazer login";
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -135,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           emailRedirectTo: redirectUrl,
           data: {
-            name,
+            full_name: name,
           },
         },
       });
@@ -163,8 +153,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || "Erro ao criar conta" };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Erro ao criar conta";
+      return { success: false, error: errorMessage };
     }
   };
 

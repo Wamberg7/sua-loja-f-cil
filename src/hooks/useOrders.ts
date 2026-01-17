@@ -13,13 +13,13 @@ export const useOrders = () => {
       if (!store?.id) return [];
       
       const { data, error } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("*, items:order_items(*)")
         .eq("store_id", store.id)
         .order("created_at", { ascending: false });
       
       if (error) throw new Error(error.message);
-      return (data || []) as Order[];
+      return (data || []) as unknown as Order[];
     },
     enabled: !!store?.id,
   });
@@ -30,13 +30,13 @@ export const useOrder = (id: string) => {
     queryKey: ["orders", id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("*, items:order_items(*)")
         .eq("id", id)
         .maybeSingle();
       
       if (error) throw new Error(error.message);
-      return data as Order | null;
+      return data as unknown as Order | null;
     },
     enabled: !!id,
   });
@@ -48,23 +48,23 @@ export const useCreateOrder = () => {
   return useMutation({
     mutationFn: async (order: Partial<Order>) => {
       const { data, error } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .insert({
           store_id: order.store_id,
           customer_email: order.customer_email || "",
           customer_name: order.customer_name || "",
           customer_phone: order.customer_phone,
           total: order.total || 0,
+          subtotal: order.subtotal || 0,
+          discount: order.discount || 0,
           payment_method: order.payment_method,
           status: order.status || "pending",
-          payment_status: order.payment_status || "pending",
-          notes: order.notes,
-        })
+        } as never)
         .select()
         .single();
       
       if (error) throw new Error(error.message);
-      return data as Order;
+      return data as unknown as Order;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -82,14 +82,14 @@ export const useUpdateOrderStatus = () => {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { data, error } = await supabase
-        .from("orders")
-        .update({ status })
+        .from("orders" as never)
+        .update({ status } as never)
         .eq("id", id)
         .select()
         .single();
       
       if (error) throw new Error(error.message);
-      return data as Order;
+      return data as unknown as Order;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });

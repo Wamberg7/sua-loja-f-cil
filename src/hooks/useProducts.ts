@@ -13,13 +13,13 @@ export const useProducts = () => {
       if (!store?.id) return [];
       
       const { data, error } = await supabase
-        .from("products")
-        .select("*, variations:product_variations(*)")
+        .from("products" as never)
+        .select("*")
         .eq("store_id", store.id)
         .order("created_at", { ascending: false });
       
       if (error) throw new Error(error.message);
-      return (data || []) as Product[];
+      return (data || []) as unknown as Product[];
     },
     enabled: !!store?.id,
   });
@@ -30,13 +30,13 @@ export const useProduct = (id: string) => {
     queryKey: ["products", id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("products")
-        .select("*, variations:product_variations(*)")
+        .from("products" as never)
+        .select("*")
         .eq("id", id)
         .maybeSingle();
       
       if (error) throw new Error(error.message);
-      return data as Product | null;
+      return data as unknown as Product | null;
     },
     enabled: !!id,
   });
@@ -51,22 +51,22 @@ export const useCreateProduct = () => {
       if (!store?.id) throw new Error("Loja não encontrada");
       
       const { data, error } = await supabase
-        .from("products")
+        .from("products" as never)
         .insert({
           store_id: store.id,
           name: product.name || "",
           description: product.description,
           price: product.price || 0,
           stock: product.stock || 0,
-          image_url: product.image_url,
+          images: product.images || [],
           category_id: product.category_id,
           is_active: product.is_active ?? true,
-        })
+        } as never)
         .select()
         .single();
       
       if (error) throw new Error(error.message);
-      return data as Product;
+      return data as unknown as Product;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -84,22 +84,22 @@ export const useUpdateProduct = () => {
   return useMutation({
     mutationFn: async ({ id, ...product }: Partial<Product> & { id: string }) => {
       const { data, error } = await supabase
-        .from("products")
+        .from("products" as never)
         .update({
           name: product.name,
           description: product.description,
           price: product.price,
           stock: product.stock,
-          image_url: product.image_url,
+          images: product.images,
           category_id: product.category_id,
           is_active: product.is_active,
-        })
+        } as never)
         .eq("id", id)
         .select()
         .single();
       
       if (error) throw new Error(error.message);
-      return data as Product;
+      return data as unknown as Product;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -117,7 +117,7 @@ export const useDeleteProduct = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("products")
+        .from("products" as never)
         .delete()
         .eq("id", id);
       

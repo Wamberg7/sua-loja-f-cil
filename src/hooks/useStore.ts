@@ -13,16 +13,31 @@ export const useMyStore = () => {
       if (!user?.id) return null;
       
       const { data, error } = await supabase
-        .from("stores")
+        .from("stores" as never)
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
       
       if (error) throw new Error(error.message);
-      return data as Store | null;
+      return data as unknown as Store | null;
     },
     enabled: !!user?.id,
     initialData: store,
+  });
+};
+
+export const useAllStores = () => {
+  return useQuery({
+    queryKey: ["stores", "all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("stores" as never)
+        .select("*, owner:profiles!stores_user_id_fkey(full_name, email)")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw new Error(error.message);
+      return (data || []) as unknown as Store[];
+    },
   });
 };
 
@@ -35,7 +50,7 @@ export const useUpdateStore = () => {
       if (!store?.id) throw new Error("Loja não encontrada");
       
       const { data, error } = await supabase
-        .from("stores")
+        .from("stores" as never)
         .update({
           name: storeData.name,
           slug: storeData.slug,
@@ -43,13 +58,13 @@ export const useUpdateStore = () => {
           logo_url: storeData.logo_url,
           category: storeData.category,
           is_active: storeData.is_active,
-        })
+        } as never)
         .eq("id", store.id)
         .select()
         .single();
       
       if (error) throw new Error(error.message);
-      return data as Store;
+      return data as unknown as Store;
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["store"] });
@@ -71,7 +86,7 @@ export const useCreateStore = () => {
       if (!user?.id) throw new Error("Usuário não autenticado");
       
       const { data, error } = await supabase
-        .from("stores")
+        .from("stores" as never)
         .insert({
           user_id: user.id,
           name: storeData.name || "",
@@ -80,12 +95,12 @@ export const useCreateStore = () => {
           logo_url: storeData.logo_url,
           category: storeData.category,
           is_active: true,
-        })
+        } as never)
         .select()
         .single();
       
       if (error) throw new Error(error.message);
-      return data as Store;
+      return data as unknown as Store;
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["store"] });
@@ -98,21 +113,27 @@ export const useCreateStore = () => {
   });
 };
 
-export const useRegenerateApiKey = () => {
+export const useToggleStoreStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
-      // Generate a new API key (UUID-based)
-      const newApiKey = crypto.randomUUID();
-      return { api_key: newApiKey };
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { data, error } = await supabase
+        .from("stores" as never)
+        .update({ is_active } as never)
+        .eq("id", id)
+        .select()
+        .single();
+      
+      if (error) throw new Error(error.message);
+      return data as unknown as Store;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["store", "me"] });
-      toast.success("Nova chave de API gerada!");
+      queryClient.invalidateQueries({ queryKey: ["stores"] });
+      toast.success("Status da loja atualizado!");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Erro ao gerar nova chave");
+      toast.error(error.message || "Erro ao atualizar status");
     },
   });
 };
