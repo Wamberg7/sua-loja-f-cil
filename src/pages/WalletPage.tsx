@@ -178,7 +178,6 @@ const WalletPage = () => {
         <Button 
           onClick={() => setIsWithdrawOpen(true)}
           className="bg-gradient-primary hover:opacity-90 gap-2"
-          disabled={(wallet?.available || 0) <= 0}
         >
           <ArrowDownToLine className="w-4 h-4" />
           Sacar
