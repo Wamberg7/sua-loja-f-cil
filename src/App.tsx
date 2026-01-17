@@ -11,6 +11,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
+import CreateNormalProduct from "./pages/CreateNormalProduct";
+import CreateVariationProduct from "./pages/CreateVariationProduct";
 import Categories from "./pages/Categories";
 import Coupons from "./pages/Coupons";
 import Orders from "./pages/Orders";
@@ -64,6 +66,16 @@ const App = () => (
             <Route path="/dashboard/produtos" element={
               <ProtectedRoute>
                 <Products />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/products/normal" element={
+              <ProtectedRoute>
+                <CreateNormalProduct />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/products/variation" element={
+              <ProtectedRoute>
+                <CreateVariationProduct />
               </ProtectedRoute>
             } />
             <Route path="/dashboard/categorias" element={
