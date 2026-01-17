@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Zap } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Header = () => {
   return (
@@ -26,8 +27,8 @@ const Header = () => {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="hidden sm:flex">
-              Entrar
+            <Button variant="ghost" size="sm" className="hidden sm:flex" asChild>
+              <Link to="/dashboard">Dashboard</Link>
             </Button>
             <Button variant="discord" size="sm" className="gap-2">
               <MessageSquare className="w-4 h-4" />
