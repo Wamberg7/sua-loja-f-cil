@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Info, Layers, Upload, Image as ImageIcon, Plus, X } from "lucide-react";
+import { ArrowLeft, Info, Layers, Image as ImageIcon, Plus, X, AlignJustify, Package } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCategories } from "@/hooks/useCategories";
 import { useCreateProduct } from "@/hooks/useProducts";
@@ -20,9 +27,11 @@ import { toast } from "sonner";
 
 interface Variation {
   id: string;
-  name: string;
+  title: string;
   price: number;
-  stock: number | null;
+  stockType: "lines" | "ghost";
+  stockItems: string; // For line-based stock, each line is an item
+  productLink: string; // For ghost stock
 }
 
 const CreateVariationProduct = () => {
@@ -38,38 +47,75 @@ const CreateVariationProduct = () => {
     imageUrl: "",
   });
 
-  const [variations, setVariations] = useState<Variation[]>([
-    { id: "1", name: "", price: 0, stock: null }
-  ]);
+  const [variations, setVariations] = useState<Variation[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentVariation, setCurrentVariation] = useState<Variation>({
+    id: "",
+    title: "",
+    price: 0,
+    stockType: "lines",
+    stockItems: "",
+    productLink: "",
+  });
 
-  const addVariation = () => {
-    setVariations([
-      ...variations,
-      { id: Date.now().toString(), name: "", price: 0, stock: null }
-    ]);
+  const openCreateModal = () => {
+    setCurrentVariation({
+      id: Date.now().toString(),
+      title: "",
+      price: 0,
+      stockType: "lines",
+      stockItems: "",
+      productLink: "",
+    });
+    setIsModalOpen(true);
   };
 
-  const updateVariation = (id: string, field: keyof Variation, value: string | number | null) => {
-    setVariations(variations.map(v => 
-      v.id === id ? { ...v, [field]: value } : v
-    ));
-  };
-
-  const removeVariation = (id: string) => {
-    if (variations.length > 1) {
-      setVariations(variations.filter(v => v.id !== id));
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (variations.length === 0 || variations.every(v => !v.name)) {
-      toast.error("Adicione pelo menos uma variação com nome");
+  const handleCreateVariation = () => {
+    if (!currentVariation.title) {
+      toast.error("Digite um título para a variação");
       return;
     }
 
-    // For now, create a product with the base price of the first variation
-    // In the future, we can create a product_variations table
-    const minPrice = Math.min(...variations.filter(v => v.name).map(v => v.price));
+    if (currentVariation.stockType === "lines" && !currentVariation.stockItems.trim()) {
+      toast.error("Adicione pelo menos um item de estoque");
+      return;
+    }
+
+    if (currentVariation.stockType === "ghost" && !currentVariation.productLink.trim()) {
+      toast.error("Digite o link do produto");
+      return;
+    }
+
+    setVariations([...variations, currentVariation]);
+    setIsModalOpen(false);
+  };
+
+  const removeVariation = (id: string) => {
+    setVariations(variations.filter(v => v.id !== id));
+  };
+
+  const clearStockItems = () => {
+    setCurrentVariation({ ...currentVariation, stockItems: "" });
+  };
+
+  const getStockCount = (variation: Variation) => {
+    if (variation.stockType === "ghost") return "∞";
+    return variation.stockItems.split("\n").filter(line => line.trim()).length;
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.name) {
+      toast.error("Digite o nome do produto");
+      return;
+    }
+
+    if (variations.length === 0) {
+      toast.error("Adicione pelo menos uma variação");
+      return;
+    }
+
+    // Get minimum price from variations
+    const minPrice = Math.min(...variations.map(v => v.price));
     
     const productData = {
       name: formData.name,
@@ -82,7 +128,7 @@ const CreateVariationProduct = () => {
     };
 
     await createProduct.mutateAsync(productData);
-    navigate('/dashboard/products');
+    navigate('/dashboard/produtos');
   };
 
   const isLoading = createProduct.isPending;
@@ -94,7 +140,7 @@ const CreateVariationProduct = () => {
         <Button 
           variant="ghost" 
           size="icon"
-          onClick={() => navigate('/dashboard/products')}
+          onClick={() => navigate('/dashboard/produtos')}
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -181,85 +227,62 @@ const CreateVariationProduct = () => {
             </TabsContent>
 
             <TabsContent value="variations" className="mt-0 space-y-6">
-              <div className="space-y-2">
-                <h2 className="text-xl font-semibold text-foreground">Variações</h2>
-                <p className="text-sm text-muted-foreground">
-                  Configure as variações do seu produto com diferentes preços.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {variations.map((variation, index) => (
-                  <div 
-                    key={variation.id} 
-                    className="p-4 bg-secondary/30 rounded-xl border border-border space-y-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Variação {index + 1}
-                      </span>
-                      {variations.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => removeVariation(variation.id)}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Nome da variação</Label>
-                        <Input
-                          value={variation.name}
-                          onChange={(e) => updateVariation(variation.id, "name", e.target.value)}
-                          placeholder="Ex: Básico, Pro, Premium"
-                          className="bg-secondary/50"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Preço (R$)</Label>
-                        <Input
-                          type="number"
-                          value={variation.price}
-                          onChange={(e) => updateVariation(variation.id, "price", parseFloat(e.target.value) || 0)}
-                          min="0"
-                          step="0.01"
-                          className="bg-secondary/50"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Estoque (deixe vazio para ilimitado)</Label>
-                      <Input
-                        type="number"
-                        value={variation.stock ?? ""}
-                        onChange={(e) => updateVariation(
-                          variation.id, 
-                          "stock", 
-                          e.target.value === "" ? null : parseInt(e.target.value) || 0
-                        )}
-                        min="0"
-                        placeholder="Ilimitado"
-                        className="bg-secondary/50"
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                <Button 
-                  variant="outline" 
-                  onClick={addVariation} 
-                  className="w-full gap-2"
-                >
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold text-foreground">Variações do Produto</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Crie variações para produtos com diferentes tamanhos, cores ou outras características.
+                  </p>
+                </div>
+                <Button onClick={openCreateModal} className="gap-2">
                   <Plus className="w-4 h-4" />
-                  Adicionar Variação
+                  Criar variação
                 </Button>
               </div>
+
+              {variations.length === 0 ? (
+                <div className="border border-border rounded-xl p-8 text-center">
+                  <p className="text-muted-foreground mb-4">Nenhuma variação criada ainda</p>
+                  <Button variant="outline" onClick={openCreateModal} className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Criar primeira variação
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {variations.map((variation) => (
+                    <div 
+                      key={variation.id}
+                      className="flex items-center justify-between p-4 bg-secondary/30 rounded-xl border border-border"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">{variation.title}</p>
+                        <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                          <span>
+                            R$ {variation.price.toFixed(2).replace('.', ',')}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            Estoque: {getStockCount(variation)}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            {variation.stockType === "ghost" ? "Estoque fantasma" : "Por linhas"}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive"
+                        onClick={() => removeVariation(variation.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </TabsContent>
           </div>
 
@@ -315,17 +338,146 @@ const CreateVariationProduct = () => {
       <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-border">
         <Button 
           variant="outline" 
-          onClick={() => navigate('/dashboard/products')}
+          onClick={() => navigate('/dashboard/produtos')}
         >
           Cancelar
         </Button>
         <Button 
           onClick={handleSubmit} 
-          disabled={!formData.name || isLoading}
+          disabled={!formData.name || variations.length === 0 || isLoading}
         >
           {isLoading ? "Salvando..." : "Criar Produto"}
         </Button>
       </div>
+
+      {/* Create Variation Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Criar nova variação</DialogTitle>
+            <DialogDescription>
+              Crie uma variação de produto para separar entre tipos de itens diferentes
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Title */}
+            <div className="space-y-2">
+              <Label htmlFor="variation-title">Título</Label>
+              <Input
+                id="variation-title"
+                value={currentVariation.title}
+                onChange={(e) => setCurrentVariation({ ...currentVariation, title: e.target.value })}
+                placeholder="Ex: Plano Mensal"
+                className="bg-secondary/50"
+              />
+            </div>
+
+            {/* Price */}
+            <div className="space-y-2">
+              <Label htmlFor="variation-price">Preço</Label>
+              <Input
+                id="variation-price"
+                type="number"
+                value={currentVariation.price}
+                onChange={(e) => setCurrentVariation({ ...currentVariation, price: parseFloat(e.target.value) || 0 })}
+                min="0"
+                step="0.01"
+                placeholder="0"
+                className="bg-secondary/50"
+              />
+            </div>
+
+            {/* Stock Type */}
+            <div className="space-y-2">
+              <Label>Tipo de estoque</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => setCurrentVariation({ ...currentVariation, stockType: "lines" })}
+                  className={`p-4 rounded-xl border-2 transition-all text-center ${
+                    currentVariation.stockType === "lines" 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border hover:border-primary/30"
+                  }`}
+                >
+                  <AlignJustify className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                  <p className="font-medium text-foreground">Linhas</p>
+                </button>
+                <button
+                  onClick={() => setCurrentVariation({ ...currentVariation, stockType: "ghost" })}
+                  className={`p-4 rounded-xl border-2 transition-all text-center ${
+                    currentVariation.stockType === "ghost" 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border hover:border-primary/30"
+                  }`}
+                >
+                  <Package className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                  <p className="font-medium text-foreground">Estoque fantasma</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Stock Items (for lines type) */}
+            {currentVariation.stockType === "lines" ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Estoque</Label>
+                  <Button 
+                    variant="link" 
+                    className="text-primary p-0 h-auto"
+                    onClick={clearStockItems}
+                  >
+                    Remover tudo
+                  </Button>
+                </div>
+                <div className="relative bg-secondary/50 rounded-lg border border-border overflow-hidden">
+                  <div className="flex">
+                    <div className="w-8 bg-secondary/80 border-r border-border py-2 text-center text-xs text-muted-foreground font-mono">
+                      {currentVariation.stockItems.split("\n").map((_, i) => (
+                        <div key={i} className="h-6 leading-6">{i + 1}</div>
+                      ))}
+                      {!currentVariation.stockItems && <div className="h-6 leading-6">1</div>}
+                    </div>
+                    <Textarea
+                      value={currentVariation.stockItems}
+                      onChange={(e) => setCurrentVariation({ ...currentVariation, stockItems: e.target.value })}
+                      placeholder="Digite cada item em uma linha..."
+                      rows={5}
+                      className="border-0 bg-transparent resize-none font-mono text-sm leading-6"
+                    />
+                  </div>
+                </div>
+                <p className="text-sm text-warning">
+                  <span className="font-medium">(Importante)</span> Cada linha é representada um estoque.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="product-link">Link do Produto</Label>
+                <Input
+                  id="product-link"
+                  value={currentVariation.productLink}
+                  onChange={(e) => setCurrentVariation({ ...currentVariation, productLink: e.target.value })}
+                  placeholder="https://exemplo.com/produto"
+                  className="bg-secondary/50"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Este produto será entregue ilimitadamente para todos os usuários.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateVariation}>
+              Criar variação
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
