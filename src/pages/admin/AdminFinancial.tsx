@@ -9,78 +9,135 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DollarSign, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
-
-const stats = [
-  {
-    title: "Receita Total (Taxas)",
-    value: "R$ 45.890,00",
-    change: "+18%",
-    trend: "up",
-    icon: DollarSign,
-  },
-  {
-    title: "Receita Mensal",
-    value: "R$ 12.340,00",
-    change: "+12%",
-    trend: "up",
-    icon: TrendingUp,
-  },
-  {
-    title: "Saques Pendentes",
-    value: "R$ 8.500,00",
-    change: "5 pedidos",
-    trend: "neutral",
-    icon: Wallet,
-  },
-];
-
-const recentTransactions = [
-  {
-    id: 1,
-    type: "income",
-    description: "Taxa de venda - Loja Digital Pro",
-    value: "R$ 15,71",
-    date: "Hoje, 14:30",
-  },
-  {
-    id: 2,
-    type: "income",
-    description: "Taxa de venda - E-books Master",
-    value: "R$ 2,21",
-    date: "Hoje, 12:15",
-  },
-  {
-    id: 3,
-    type: "expense",
-    description: "Saque aprovado - Templates Hub",
-    value: "R$ 2.500,00",
-    date: "Ontem, 18:45",
-  },
-  {
-    id: 4,
-    type: "income",
-    description: "Taxa de venda - Cursos Online",
-    value: "R$ 6,71",
-    date: "Ontem, 10:20",
-  },
-  {
-    id: 5,
-    type: "income",
-    description: "Assinatura Pro - Loja XYZ",
-    value: "R$ 99,00",
-    date: "13/01/2024",
-  },
-];
-
-const monthlyRevenue = [
-  { month: "Jan", revenue: "R$ 12.340", fees: "R$ 8.500", subscriptions: "R$ 3.840" },
-  { month: "Dez", revenue: "R$ 10.890", fees: "R$ 7.200", subscriptions: "R$ 3.690" },
-  { month: "Nov", revenue: "R$ 9.750", fees: "R$ 6.100", subscriptions: "R$ 3.650" },
-  { month: "Out", revenue: "R$ 8.900", fees: "R$ 5.400", subscriptions: "R$ 3.500" },
-];
+import { DollarSign, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
+import { useAllSales } from "@/hooks/useSales";
+import { useAllWithdrawals } from "@/hooks/useWithdrawals";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function AdminFinancial() {
+  const { sales, isLoading: salesLoading, calculateFee } = useAllSales();
+  const { withdrawals, isLoading: withdrawalsLoading, stats: withdrawalStats } = useAllWithdrawals();
+
+  const isLoading = salesLoading || withdrawalsLoading;
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value / 100);
+  };
+
+  // Calculate total revenue from fees
+  const totalFees = sales
+    .filter(s => s.status === 'approved')
+    .reduce((acc, s) => acc + calculateFee(s.total), 0);
+
+  // Calculate this month's revenue
+  const thisMonth = new Date();
+  const monthlyFees = sales
+    .filter(s => {
+      const saleDate = new Date(s.created_at);
+      return saleDate.getMonth() === thisMonth.getMonth() && 
+             saleDate.getFullYear() === thisMonth.getFullYear() &&
+             s.status === 'approved';
+    })
+    .reduce((acc, s) => acc + calculateFee(s.total), 0);
+
+  const stats = [
+    {
+      title: "Receita Total (Taxas)",
+      value: formatCurrency(totalFees),
+      change: "+18%",
+      trend: "up",
+      icon: DollarSign,
+    },
+    {
+      title: "Receita Mensal",
+      value: formatCurrency(monthlyFees),
+      change: "+12%",
+      trend: "up",
+      icon: TrendingUp,
+    },
+    {
+      title: "Saques Pendentes",
+      value: formatCurrency(withdrawalStats.pendingAmount),
+      change: `${withdrawalStats.pending} pedidos`,
+      trend: "neutral",
+      icon: Wallet,
+    },
+  ];
+
+  // Build recent transactions from sales and withdrawals
+  const recentTransactions = [
+    ...sales.slice(0, 5).map(sale => ({
+      id: sale.id,
+      type: "income" as const,
+      description: `Taxa de venda - ${sale.store?.name || 'Loja'}`,
+      value: formatCurrency(calculateFee(sale.total)),
+      date: format(new Date(sale.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+      timestamp: new Date(sale.created_at).getTime(),
+    })),
+    ...withdrawals.filter(w => w.status === 'completed').slice(0, 5).map(w => ({
+      id: w.id,
+      type: "expense" as const,
+      description: `Saque aprovado - ${w.store?.name || 'Loja'}`,
+      value: formatCurrency(w.amount),
+      date: format(new Date(w.completed_at || w.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+      timestamp: new Date(w.completed_at || w.created_at).getTime(),
+    })),
+  ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 8);
+
+  // Calculate monthly revenue breakdown
+  const getMonthlyData = () => {
+    const months: Record<string, { fees: number; total: number }> = {};
+    
+    sales.filter(s => s.status === 'approved').forEach(sale => {
+      const date = new Date(sale.created_at);
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      if (!months[key]) {
+        months[key] = { fees: 0, total: 0 };
+      }
+      months[key].fees += calculateFee(sale.total);
+      months[key].total += sale.total;
+    });
+
+    return Object.entries(months)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .slice(0, 4)
+      .map(([key, data]) => {
+        const [year, month] = key.split('-').map(Number);
+        const date = new Date(year, month);
+        return {
+          month: format(date, "MMM", { locale: ptBR }),
+          fees: formatCurrency(data.fees),
+          total: formatCurrency(data.total),
+        };
+      });
+  };
+
+  const monthlyRevenue = getMonthlyData();
+
+  // Top stores by revenue
+  const getTopStores = () => {
+    const storeRevenue: Record<string, { name: string; revenue: number }> = {};
+    
+    sales.filter(s => s.status === 'approved').forEach(sale => {
+      const storeId = sale.store_id;
+      const storeName = sale.store?.name || 'Loja';
+      if (!storeRevenue[storeId]) {
+        storeRevenue[storeId] = { name: storeName, revenue: 0 };
+      }
+      storeRevenue[storeId].revenue += calculateFee(sale.total);
+    });
+
+    return Object.values(storeRevenue)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 3);
+  };
+
+  const topStores = getTopStores();
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -123,38 +180,46 @@ export default function AdminFinancial() {
               <CardTitle>Movimentações Recentes</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentTransactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          transaction.type === "income"
-                            ? "bg-emerald-500/10"
-                            : "bg-red-500/10"
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : recentTransactions.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">Nenhuma movimentação</p>
+              ) : (
+                <div className="space-y-4">
+                  {recentTransactions.map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            transaction.type === "income"
+                              ? "bg-emerald-500/10"
+                              : "bg-red-500/10"
+                          }`}
+                        >
+                          {transaction.type === "income" ? (
+                            <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+                          ) : (
+                            <ArrowDownRight className="w-4 h-4 text-red-500" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground text-sm">{transaction.description}</p>
+                          <p className="text-xs text-muted-foreground">{transaction.date}</p>
+                        </div>
+                      </div>
+                      <span
+                        className={`font-semibold ${
+                          transaction.type === "income" ? "text-emerald-500" : "text-red-500"
                         }`}
                       >
-                        {transaction.type === "income" ? (
-                          <ArrowUpRight className="w-4 h-4 text-emerald-500" />
-                        ) : (
-                          <ArrowDownRight className="w-4 h-4 text-red-500" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground text-sm">{transaction.description}</p>
-                        <p className="text-xs text-muted-foreground">{transaction.date}</p>
-                      </div>
+                        {transaction.type === "income" ? "+" : "-"}{transaction.value}
+                      </span>
                     </div>
-                    <span
-                      className={`font-semibold ${
-                        transaction.type === "income" ? "text-emerald-500" : "text-red-500"
-                      }`}
-                    >
-                      {transaction.type === "income" ? "+" : "-"}{transaction.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -164,91 +229,65 @@ export default function AdminFinancial() {
               <CardTitle>Receita Mensal</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mês</TableHead>
-                    <TableHead>Taxas</TableHead>
-                    <TableHead>Assinaturas</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {monthlyRevenue.map((row) => (
-                    <TableRow key={row.month}>
-                      <TableCell className="font-medium">{row.month}</TableCell>
-                      <TableCell>{row.fees}</TableCell>
-                      <TableCell>{row.subscriptions}</TableCell>
-                      <TableCell className="text-right font-semibold text-primary">
-                        {row.revenue}
-                      </TableCell>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : monthlyRevenue.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">Sem dados</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mês</TableHead>
+                      <TableHead>Taxas</TableHead>
+                      <TableHead className="text-right">Total Vendas</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {monthlyRevenue.map((row) => (
+                      <TableRow key={row.month}>
+                        <TableCell className="font-medium capitalize">{row.month}</TableCell>
+                        <TableCell className="text-primary font-semibold">{row.fees}</TableCell>
+                        <TableCell className="text-right">{row.total}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Revenue Chart Placeholder */}
+        {/* Top Stores */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Evolução da Receita</CardTitle>
+            <CardTitle>Top Lojas por Receita (Taxa)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
-              <p className="text-muted-foreground">Gráfico de evolução será exibido aqui</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Revenue Breakdown */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle>Receita por Fonte</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-primary" />
-                    <span>Taxas de Vendas (3% + R$0,80)</span>
-                  </div>
-                  <span className="font-semibold">68%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-secondary" />
-                    <span>Assinaturas de Planos</span>
-                  </div>
-                  <span className="font-semibold">32%</span>
-                </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle>Top Lojas por Receita</CardTitle>
-            </CardHeader>
-            <CardContent>
+            ) : topStores.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">Sem dados</p>
+            ) : (
               <div className="space-y-3">
-                {["Loja Digital Pro", "E-books Master", "Templates Hub"].map((store, index) => (
-                  <div key={store} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                {topStores.map((store, index) => (
+                  <div key={store.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-3">
                       <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
                         {index + 1}
                       </span>
-                      <span className="font-medium">{store}</span>
+                      <span className="font-medium">{store.name}</span>
                     </div>
-                    <Badge variant="outline">R$ {(1500 - index * 300).toLocaleString()}</Badge>
+                    <Badge variant="outline">{formatCurrency(store.revenue)}</Badge>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </AdminLayout>
   );

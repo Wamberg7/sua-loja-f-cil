@@ -158,6 +158,39 @@ export type Database = {
           },
         ]
       }
+      goals: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          reward_description: string
+          reward_type: string
+          target_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          reward_description: string
+          reward_type?: string
+          target_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          reward_description?: string
+          reward_type?: string
+          target_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
@@ -258,6 +291,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plans: {
+        Row: {
+          created_at: string
+          features: string[] | null
+          id: string
+          is_active: boolean
+          max_monthly_views: number | null
+          max_products: number | null
+          name: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          features?: string[] | null
+          id?: string
+          is_active?: boolean
+          max_monthly_views?: number | null
+          max_products?: number | null
+          name: string
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          features?: string[] | null
+          id?: string
+          is_active?: boolean
+          max_monthly_views?: number | null
+          max_products?: number | null
+          name?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       products: {
         Row: {
@@ -441,6 +510,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_goals: {
+        Row: {
+          achieved_at: string | null
+          created_at: string
+          current_amount: number
+          goal_id: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          achieved_at?: string | null
+          created_at?: string
+          current_amount?: number
+          goal_id: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          achieved_at?: string | null
+          created_at?: string
+          current_amount?: number
+          goal_id?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_goals_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -502,6 +609,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      withdrawals: {
+        Row: {
+          amount: number
+          completed_at: string | null
+          created_at: string
+          id: string
+          pix_key: string
+          pix_type: string
+          reject_reason: string | null
+          status: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          pix_key: string
+          pix_type?: string
+          reject_reason?: string | null
+          status?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          pix_key?: string
+          pix_type?: string
+          reject_reason?: string | null
+          status?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,94 +29,32 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Search, Eye, CheckCircle, XCircle, Wallet, Clock, AlertTriangle, DollarSign } from "lucide-react";
-
-const withdrawals = [
-  {
-    id: "#SAQ-001",
-    store: "Loja Digital Pro",
-    owner: "João Silva",
-    cpf: "123.456.789-00",
-    pixKey: "123.456.789-00",
-    pixType: "CPF",
-    amount: "R$ 2.500,00",
-    availableBalance: "R$ 3.200,00",
-    status: "pending",
-    requestDate: "15/01/2024 14:30",
-  },
-  {
-    id: "#SAQ-002",
-    store: "E-books Master",
-    owner: "Maria Santos",
-    cpf: "987.654.321-00",
-    pixKey: "maria@email.com",
-    pixType: "Email",
-    amount: "R$ 1.800,00",
-    availableBalance: "R$ 2.100,00",
-    status: "pending",
-    requestDate: "15/01/2024 10:15",
-  },
-  {
-    id: "#SAQ-003",
-    store: "Cursos Online",
-    owner: "Pedro Costa",
-    cpf: "456.789.123-00",
-    pixKey: "456.789.123-00",
-    pixType: "CPF",
-    amount: "R$ 5.000,00",
-    availableBalance: "R$ 5.500,00",
-    status: "processing",
-    requestDate: "14/01/2024 16:45",
-  },
-  {
-    id: "#SAQ-004",
-    store: "Templates Hub",
-    owner: "Ana Oliveira",
-    cpf: "321.654.987-00",
-    pixKey: "+5511999999999",
-    pixType: "Telefone",
-    amount: "R$ 890,00",
-    availableBalance: "R$ 1.200,00",
-    status: "completed",
-    requestDate: "13/01/2024 09:00",
-    completedDate: "13/01/2024 11:30",
-  },
-  {
-    id: "#SAQ-005",
-    store: "Design Academy",
-    owner: "Carlos Mendes",
-    cpf: "654.321.987-00",
-    pixKey: "654.321.987-00",
-    pixType: "CPF",
-    amount: "R$ 3.200,00",
-    availableBalance: "R$ 3.500,00",
-    status: "rejected",
-    requestDate: "12/01/2024 14:20",
-    rejectReason: "Documentação pendente",
-  },
-];
-
-const stats = [
-  { title: "Pendentes", value: "2", amount: "R$ 4.300", icon: Clock, color: "amber" },
-  { title: "Em Processamento", value: "1", amount: "R$ 5.000", icon: AlertTriangle, color: "blue" },
-  { title: "Concluídos (mês)", value: "45", amount: "R$ 89.500", icon: CheckCircle, color: "emerald" },
-];
+import { Search, Eye, CheckCircle, XCircle, Wallet, Clock, AlertTriangle, Loader2 } from "lucide-react";
+import { useAllWithdrawals, Withdrawal } from "@/hooks/useWithdrawals";
 
 export default function AdminWithdrawals() {
+  const { withdrawals, isLoading, updateWithdrawal, stats } = useAllWithdrawals();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedWithdrawal, setSelectedWithdrawal] = useState<typeof withdrawals[0] | null>(null);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
   const filteredWithdrawals = withdrawals.filter((withdrawal) => {
     const matchesSearch =
-      withdrawal.store.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      withdrawal.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      withdrawal.store?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      withdrawal.profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       withdrawal.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || withdrawal.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value / 100);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -131,6 +71,36 @@ export default function AdminWithdrawals() {
     }
   };
 
+  const handleApprove = async () => {
+    if (!selectedWithdrawal) return;
+    await updateWithdrawal.mutateAsync({ id: selectedWithdrawal.id, status: 'processing' });
+    setSelectedWithdrawal(null);
+  };
+
+  const handleComplete = async () => {
+    if (!selectedWithdrawal) return;
+    await updateWithdrawal.mutateAsync({ id: selectedWithdrawal.id, status: 'completed' });
+    setSelectedWithdrawal(null);
+  };
+
+  const handleReject = async () => {
+    if (!selectedWithdrawal) return;
+    await updateWithdrawal.mutateAsync({ 
+      id: selectedWithdrawal.id, 
+      status: 'rejected',
+      reject_reason: rejectReason 
+    });
+    setShowRejectDialog(false);
+    setSelectedWithdrawal(null);
+    setRejectReason("");
+  };
+
+  const statsCards = [
+    { title: "Pendentes", value: stats.pending.toString(), amount: formatCurrency(stats.pendingAmount), icon: Clock, color: "amber" },
+    { title: "Em Processamento", value: stats.processing.toString(), amount: formatCurrency(stats.processingAmount), icon: AlertTriangle, color: "blue" },
+    { title: "Concluídos", value: stats.completed.toString(), amount: formatCurrency(stats.completedAmount), icon: CheckCircle, color: "emerald" },
+  ];
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -142,7 +112,7 @@ export default function AdminWithdrawals() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {stats.map((stat) => (
+          {statsCards.map((stat) => (
             <Card key={stat.title} className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -209,42 +179,58 @@ export default function AdminWithdrawals() {
             <CardTitle>Solicitações de Saque</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Loja</TableHead>
-                  <TableHead>Proprietário</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Saldo Disponível</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredWithdrawals.map((withdrawal) => (
-                  <TableRow key={withdrawal.id}>
-                    <TableCell className="font-mono font-medium">{withdrawal.id}</TableCell>
-                    <TableCell>{withdrawal.store}</TableCell>
-                    <TableCell>{withdrawal.owner}</TableCell>
-                    <TableCell className="font-semibold">{withdrawal.amount}</TableCell>
-                    <TableCell className="text-muted-foreground">{withdrawal.availableBalance}</TableCell>
-                    <TableCell>{withdrawal.requestDate}</TableCell>
-                    <TableCell>{getStatusBadge(withdrawal.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setSelectedWithdrawal(withdrawal)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredWithdrawals.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhum saque encontrado
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Loja</TableHead>
+                    <TableHead>Proprietário</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Saldo Disponível</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredWithdrawals.map((withdrawal) => (
+                    <TableRow key={withdrawal.id}>
+                      <TableCell className="font-mono font-medium">
+                        #{withdrawal.id.slice(0, 8)}
+                      </TableCell>
+                      <TableCell>{withdrawal.store?.name || "—"}</TableCell>
+                      <TableCell>{withdrawal.profile?.full_name || withdrawal.profile?.email || "—"}</TableCell>
+                      <TableCell className="font-semibold">{formatCurrency(withdrawal.amount)}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {withdrawal.wallet ? formatCurrency(withdrawal.wallet.available) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(withdrawal.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(withdrawal.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSelectedWithdrawal(withdrawal)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -254,7 +240,7 @@ export default function AdminWithdrawals() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-primary" />
-                Pedido de Saque {selectedWithdrawal?.id}
+                Pedido de Saque #{selectedWithdrawal?.id.slice(0, 8)}
               </DialogTitle>
             </DialogHeader>
             {selectedWithdrawal && (
@@ -262,9 +248,11 @@ export default function AdminWithdrawals() {
                 {/* Amount Highlight */}
                 <div className="p-6 rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 text-center">
                   <p className="text-sm text-muted-foreground">Valor Solicitado</p>
-                  <p className="text-4xl font-bold text-foreground mt-2">{selectedWithdrawal.amount}</p>
+                  <p className="text-4xl font-bold text-foreground mt-2">
+                    {formatCurrency(selectedWithdrawal.amount)}
+                  </p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Saldo disponível: {selectedWithdrawal.availableBalance}
+                    Saldo disponível: {selectedWithdrawal.wallet ? formatCurrency(selectedWithdrawal.wallet.available) : "—"}
                   </p>
                 </div>
 
@@ -272,19 +260,21 @@ export default function AdminWithdrawals() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Loja</p>
-                    <p className="font-medium">{selectedWithdrawal.store}</p>
+                    <p className="font-medium">{selectedWithdrawal.store?.name || "—"}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Proprietário</p>
-                    <p className="font-medium">{selectedWithdrawal.owner}</p>
+                    <p className="font-medium">{selectedWithdrawal.profile?.full_name || "—"}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">CPF</p>
-                    <p className="font-mono font-medium">{selectedWithdrawal.cpf}</p>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p className="font-medium">{selectedWithdrawal.profile?.email || "—"}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Data da Solicitação</p>
-                    <p className="font-medium">{selectedWithdrawal.requestDate}</p>
+                    <p className="font-medium">
+                      {format(new Date(selectedWithdrawal.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    </p>
                   </div>
                 </div>
 
@@ -294,20 +284,20 @@ export default function AdminWithdrawals() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <p className="text-sm text-muted-foreground">Tipo de Chave Pix</p>
-                      <p className="font-medium">{selectedWithdrawal.pixType}</p>
+                      <p className="font-medium capitalize">{selectedWithdrawal.pix_type}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm text-muted-foreground">Chave Pix</p>
-                      <p className="font-mono font-medium">{selectedWithdrawal.pixKey}</p>
+                      <p className="font-mono font-medium">{selectedWithdrawal.pix_key}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Reject Reason if rejected */}
-                {selectedWithdrawal.status === "rejected" && selectedWithdrawal.rejectReason && (
+                {selectedWithdrawal.status === "rejected" && selectedWithdrawal.reject_reason && (
                   <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
                     <p className="text-sm text-red-500 font-medium">Motivo da Rejeição:</p>
-                    <p className="text-red-500">{selectedWithdrawal.rejectReason}</p>
+                    <p className="text-red-500">{selectedWithdrawal.reject_reason}</p>
                   </div>
                 )}
 
@@ -321,7 +311,7 @@ export default function AdminWithdrawals() {
                       <XCircle className="w-4 h-4 mr-2" />
                       Rejeitar
                     </Button>
-                    <Button className="bg-emerald-500 hover:bg-emerald-600">
+                    <Button className="bg-emerald-500 hover:bg-emerald-600" onClick={handleApprove}>
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Aprovar Saque
                     </Button>
@@ -333,7 +323,7 @@ export default function AdminWithdrawals() {
                     <Button variant="outline" onClick={() => setSelectedWithdrawal(null)}>
                       Fechar
                     </Button>
-                    <Button className="bg-emerald-500 hover:bg-emerald-600">
+                    <Button className="bg-emerald-500 hover:bg-emerald-600" onClick={handleComplete}>
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Marcar como Concluído
                     </Button>
@@ -372,7 +362,7 @@ export default function AdminWithdrawals() {
                 <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
                   Cancelar
                 </Button>
-                <Button variant="destructive" onClick={() => { setShowRejectDialog(false); setSelectedWithdrawal(null); }}>
+                <Button variant="destructive" onClick={handleReject}>
                   Confirmar Rejeição
                 </Button>
               </div>
