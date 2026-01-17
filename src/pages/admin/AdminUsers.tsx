@@ -1,277 +1,249 @@
-import { AdminHeader } from "@/components/admin/AdminHeader";
+import { useState } from "react";
+import { AdminLayout } from "@/components/admin/AdminLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Search,
-  MoreHorizontal,
-  Eye,
-  Ban,
-  Shield,
-  Mail,
-  UserCheck,
-  UserX,
-  Filter,
-} from "lucide-react";
-import { useState } from "react";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Search, Eye, Ban, CheckCircle, Users } from "lucide-react";
 
 const users = [
   {
     id: 1,
-    name: "Lucas Mendes",
-    email: "lucas@email.com",
-    avatar: "LM",
-    role: "seller",
+    name: "João Silva",
+    email: "joao@email.com",
+    role: "lojista",
+    store: "Loja Digital Pro",
     status: "active",
-    stores: 2,
-    sales: 156,
-    revenue: "R$ 12.450",
+    lastAccess: "Hoje, 14:30",
     createdAt: "15/01/2024",
-    isMinor: false,
   },
   {
     id: 2,
-    name: "Ana Carolina",
-    email: "ana@email.com",
-    avatar: "AC",
-    role: "seller",
+    name: "Maria Santos",
+    email: "maria@email.com",
+    role: "lojista",
+    store: "E-books Master",
     status: "active",
-    stores: 1,
-    sales: 89,
-    revenue: "R$ 8.320",
-    createdAt: "22/02/2024",
-    isMinor: false,
+    lastAccess: "Hoje, 10:15",
+    createdAt: "10/01/2024",
   },
   {
     id: 3,
-    name: "Pedro Gamer",
+    name: "Pedro Costa",
     email: "pedro@email.com",
-    avatar: "PG",
-    role: "seller",
-    status: "suspended",
-    stores: 1,
-    sales: 234,
-    revenue: "R$ 18.900",
-    createdAt: "08/03/2024",
-    isMinor: true,
+    role: "funcionario",
+    store: "Cursos Online",
+    status: "inactive",
+    lastAccess: "05/01/2024",
+    createdAt: "05/01/2024",
   },
   {
     id: 4,
-    name: "Maria Santos",
-    email: "maria@email.com",
-    avatar: "MS",
-    role: "admin",
+    name: "Ana Oliveira",
+    email: "ana@email.com",
+    role: "lojista",
+    store: "Templates Hub",
     status: "active",
-    stores: 0,
-    sales: 0,
-    revenue: "-",
+    lastAccess: "Ontem, 18:45",
     createdAt: "01/01/2024",
-    isMinor: false,
   },
   {
     id: 5,
-    name: "João Silva",
-    email: "joao@email.com",
-    avatar: "JS",
-    role: "seller",
-    status: "banned",
-    stores: 1,
-    sales: 45,
-    revenue: "R$ 3.200",
-    createdAt: "10/04/2024",
-    isMinor: false,
+    name: "Carlos Admin",
+    email: "carlos@admin.com",
+    role: "admin",
+    store: "-",
+    status: "active",
+    lastAccess: "Hoje, 09:00",
+    createdAt: "01/12/2023",
   },
 ];
 
-const statusConfig = {
-  active: { label: "Ativo", className: "bg-success/20 text-success border-success/30" },
-  suspended: { label: "Suspenso", className: "bg-yellow-500/20 text-yellow-500 border-yellow-500/30" },
-  banned: { label: "Banido", className: "bg-destructive/20 text-destructive border-destructive/30" },
-};
+export default function AdminUsers() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedUser, setSelectedUser] = useState<typeof users[0] | null>(null);
 
-const roleConfig = {
-  seller: { label: "Vendedor", className: "bg-primary/20 text-primary border-primary/30" },
-  admin: { label: "Admin", className: "bg-accent/20 text-accent border-accent/30" },
-};
+  const filteredUsers = users.filter(
+    (user) =>
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-const AdminUsers = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case "admin":
+        return <Badge className="bg-red-500/10 text-red-500">Admin</Badge>;
+      case "lojista":
+        return <Badge className="bg-primary/10 text-primary">Lojista</Badge>;
+      case "funcionario":
+        return <Badge className="bg-blue-500/10 text-blue-500">Funcionário</Badge>;
+      default:
+        return <Badge variant="outline">{role}</Badge>;
+    }
+  };
 
   return (
-    <div className="min-h-screen">
-      <AdminHeader
-        title="Gerenciamento de Usuários"
-        subtitle={`${users.length} usuários cadastrados`}
-      />
-
-      <div className="p-6 space-y-6">
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome ou email..."
-              className="pl-9 bg-card border-border"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+    <AdminLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Usuários</h1>
+            <p className="text-muted-foreground mt-1">Gerencie todos os usuários da plataforma</p>
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48 bg-card border-border">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Filtrar por status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os status</SelectItem>
-              <SelectItem value="active">Ativos</SelectItem>
-              <SelectItem value="suspended">Suspensos</SelectItem>
-              <SelectItem value="banned">Banidos</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Users className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">{users.length}</p>
+              <p className="text-xs text-muted-foreground">Total de usuários</p>
+            </div>
+          </div>
         </div>
+
+        {/* Search */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Buscar por nome ou email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Users Table */}
-        <div className="rounded-xl bg-card border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-secondary/30">
-                  <th className="text-left py-4 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Usuário
-                  </th>
-                  <th className="text-left py-4 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="text-left py-4 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="text-left py-4 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Lojas
-                  </th>
-                  <th className="text-left py-4 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Vendas
-                  </th>
-                  <th className="text-left py-4 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Faturamento
-                  </th>
-                  <th className="text-left py-4 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Cadastro
-                  </th>
-                  <th className="text-right py-4 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle>Todos os Usuários</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Função</TableHead>
+                  <TableHead>Loja</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Último Acesso</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-secondary/20 transition-colors">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground text-sm font-bold">
-                            {user.avatar}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{user.name}</span>
-                            {user.isMinor && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-yellow-500/10 text-yellow-500 border-yellow-500/30">
-                                -18
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">{user.email}</p>
-                        </div>
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{user.name}</p>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
                       </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <Badge variant="outline" className={roleConfig[user.role as keyof typeof roleConfig].className}>
-                        {roleConfig[user.role as keyof typeof roleConfig].label}
+                    </TableCell>
+                    <TableCell>{getRoleBadge(user.role)}</TableCell>
+                    <TableCell>{user.store}</TableCell>
+                    <TableCell>
+                      <Badge
+                        className={
+                          user.status === "active"
+                            ? "bg-emerald-500/10 text-emerald-500"
+                            : "bg-muted text-muted-foreground"
+                        }
+                      >
+                        {user.status === "active" ? "Ativo" : "Inativo"}
                       </Badge>
-                    </td>
-                    <td className="py-4 px-4">
-                      <Badge variant="outline" className={statusConfig[user.status as keyof typeof statusConfig].className}>
-                        {statusConfig[user.status as keyof typeof statusConfig].label}
-                      </Badge>
-                    </td>
-                    <td className="py-4 px-4 text-muted-foreground">{user.stores}</td>
-                    <td className="py-4 px-4 text-muted-foreground">{user.sales}</td>
-                    <td className="py-4 px-4 font-medium">{user.revenue}</td>
-                    <td className="py-4 px-4 text-muted-foreground text-sm">{user.createdAt}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="gap-2">
-                              <Eye className="w-4 h-4" />
-                              Ver detalhes
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
-                              <Mail className="w-4 h-4" />
-                              Enviar email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
-                              <Shield className="w-4 h-4" />
-                              Alterar permissões
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {user.status === "active" ? (
-                              <DropdownMenuItem className="gap-2 text-yellow-500">
-                                <UserX className="w-4 h-4" />
-                                Suspender
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem className="gap-2 text-success">
-                                <UserCheck className="w-4 h-4" />
-                                Reativar
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem className="gap-2 text-destructive">
-                              <Ban className="w-4 h-4" />
-                              Banir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                    </TableCell>
+                    <TableCell>{user.lastAccess}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSelectedUser(user)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon">
+                          {user.status === "active" ? (
+                            <Ban className="w-4 h-4 text-red-500" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4 text-emerald-500" />
+                          )}
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
 
-export default AdminUsers;
+        {/* User Details Dialog */}
+        <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Detalhes do Usuário</DialogTitle>
+            </DialogHeader>
+            {selectedUser && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Nome</p>
+                    <p className="font-medium">{selectedUser.name}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p className="font-medium">{selectedUser.email}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Função</p>
+                    {getRoleBadge(selectedUser.role)}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Loja</p>
+                    <p className="font-medium">{selectedUser.store}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Último Acesso</p>
+                    <p className="font-medium">{selectedUser.lastAccess}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Data de Criação</p>
+                    <p className="font-medium">{selectedUser.createdAt}</p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setSelectedUser(null)}>
+                    Fechar
+                  </Button>
+                  <Button variant="destructive">
+                    <Ban className="w-4 h-4 mr-2" />
+                    Bloquear Usuário
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AdminLayout>
+  );
+}

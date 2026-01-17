@@ -1,81 +1,96 @@
-import { UserPlus, Store, Package, Rocket } from "lucide-react";
+import { motion } from "framer-motion";
+import { UserPlus, Store, Rocket } from "lucide-react";
 
 const steps = [
   {
     number: "01",
     icon: UserPlus,
-    title: "Cadastre-se grátis",
-    description: "Crie sua conta em segundos. Sem cartão de crédito, sem complicação.",
+    title: "Crie sua conta",
+    description: "Cadastre-se gratuitamente em segundos. Apenas nome, email e senha."
   },
   {
     number: "02",
     icon: Store,
-    title: "Personalize sua loja",
-    description: "Escolha um template, adicione seu logo e cores. Sua loja estará pronta.",
+    title: "Configure sua loja",
+    description: "Personalize sua loja, adicione produtos e configure os pagamentos."
   },
   {
     number: "03",
-    icon: Package,
-    title: "Adicione produtos",
-    description: "Cadastre seus produtos digitais com entrega automática configurada.",
-  },
-  {
-    number: "04",
     icon: Rocket,
     title: "Comece a vender",
-    description: "Compartilhe sua loja e receba pagamentos. É simples assim!",
-  },
+    description: "Compartilhe sua loja e receba pagamentos automaticamente."
+  }
 ];
 
 const HowItWorksSection = () => {
   return (
-    <section id="como-funciona" className="py-24 relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-secondary/30 to-transparent" />
+    <section id="como-funciona" className="py-24 bg-card relative overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-[0.02]">
+        <div 
+          className="w-full h-full"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)`,
+            backgroundSize: '40px 40px'
+          }}
+        />
+      </div>
 
       <div className="container mx-auto px-4 relative z-10">
-        {/* Section header */}
-        <div className="text-center max-w-2xl mx-auto mb-16">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-20"
+        >
           <span className="inline-block px-4 py-1.5 rounded-full bg-accent/10 text-accent text-sm font-medium mb-4">
-            Simples e rápido
+            Simples e Rápido
           </span>
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-            Como funciona?
+          <h2 className="text-3xl md:text-5xl font-bold mb-6">
+            Como <span className="text-gradient-accent">funciona?</span>
           </h2>
-          <p className="text-muted-foreground text-lg">
-            Em 4 passos simples você estará vendendo online
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Em apenas 3 passos simples, sua loja estará pronta para vender.
           </p>
-        </div>
+        </motion.div>
 
         {/* Steps */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {steps.map((step, index) => (
-            <div key={step.number} className="relative">
-              {/* Connector line */}
-              {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-12 left-[60%] w-full h-0.5 bg-gradient-to-r from-primary/50 to-transparent" />
-              )}
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            {/* Connection Line - Desktop */}
+            <div className="hidden md:block absolute top-24 left-1/6 right-1/6 h-0.5 bg-gradient-to-r from-primary via-accent to-success" />
 
-              <div className="text-center">
-                {/* Number badge */}
-                <div className="relative inline-flex mb-6">
-                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/20">
-                    <step.icon className="w-10 h-10 text-primary" />
+            {steps.map((step, index) => (
+              <motion.div
+                key={step.number}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.2 }}
+                className="relative text-center"
+              >
+                {/* Step Number Circle */}
+                <div className="relative inline-block mb-6">
+                  <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center shadow-glow relative z-10">
+                    <step.icon className="w-8 h-8 text-primary-foreground" />
                   </div>
-                  <span className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary text-primary-foreground font-display font-bold text-sm flex items-center justify-center">
+                  <span className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-accent text-accent-foreground text-sm font-bold flex items-center justify-center">
                     {step.number}
                   </span>
                 </div>
 
-                <h3 className="font-display text-xl font-semibold mb-2">
+                {/* Content */}
+                <h3 className="text-xl font-bold mb-3 text-foreground">
                   {step.title}
                 </h3>
-                <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mx-auto">
+                <p className="text-muted-foreground">
                   {step.description}
                 </p>
-              </div>
-            </div>
-          ))}
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

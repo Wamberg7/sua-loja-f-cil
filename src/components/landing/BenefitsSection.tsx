@@ -1,101 +1,132 @@
+import { motion } from "framer-motion";
 import { 
-  Rocket, 
-  Package, 
+  Zap, 
   CreditCard, 
-  MessageSquare, 
-  LayoutDashboard, 
-  Users,
-  Sparkles,
-  ShieldCheck
+  Mail, 
+  BarChart3, 
+  Shield, 
+  Palette,
+  Clock,
+  Users
 } from "lucide-react";
 
 const benefits = [
   {
-    icon: Rocket,
-    title: "Loja pronta em minutos",
-    description: "Configure sua loja digital personalizada sem precisar de conhecimento técnico.",
-    color: "text-primary",
-  },
-  {
-    icon: Package,
-    title: "Entrega 100% automática",
-    description: "Seus produtos são enviados automaticamente após confirmação do pagamento.",
-    color: "text-success",
+    icon: Zap,
+    title: "Criação Instantânea",
+    description: "Monte sua loja em menos de 5 minutos. Sem código, sem complicação.",
+    color: "primary"
   },
   {
     icon: CreditCard,
-    title: "Pagamentos integrados",
-    description: "PIX, cartão e boleto com processamento seguro e saque rápido.",
-    color: "text-accent",
+    title: "Pagamentos Integrados",
+    description: "Pix e cartão de crédito com aprovação instantânea e taxas competitivas.",
+    color: "accent"
   },
   {
-    icon: MessageSquare,
-    title: "Integração com Discord",
-    description: "Bot completo para gerenciar vendas e entregar produtos na sua comunidade.",
-    color: "text-discord",
+    icon: Mail,
+    title: "Entrega Automática",
+    description: "Seus clientes recebem o produto automaticamente por email após a compra.",
+    color: "success"
   },
   {
-    icon: LayoutDashboard,
-    title: "Painel intuitivo",
-    description: "Dashboard simples e completo para gerenciar vendas, produtos e clientes.",
-    color: "text-neon-blue",
+    icon: BarChart3,
+    title: "Dashboard Completo",
+    description: "Acompanhe vendas, clientes e métricas em tempo real.",
+    color: "primary"
+  },
+  {
+    icon: Shield,
+    title: "Segurança Total",
+    description: "Proteção de dados e transações com criptografia de ponta.",
+    color: "warning"
+  },
+  {
+    icon: Palette,
+    title: "Personalização",
+    description: "Customize sua loja com sua marca e identidade visual.",
+    color: "accent"
+  },
+  {
+    icon: Clock,
+    title: "Suporte 24/7",
+    description: "Equipe dedicada pronta para ajudar a qualquer momento.",
+    color: "success"
   },
   {
     icon: Users,
-    title: "Para todos os níveis",
-    description: "Ideal para iniciantes, profissionais e até menores de idade.",
-    color: "text-neon-pink",
-  },
-  {
-    icon: Sparkles,
-    title: "Sem burocracia",
-    description: "Comece a vender hoje mesmo, sem documentos complexos ou aprovações.",
-    color: "text-yellow-500",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Segurança total",
-    description: "Seus dados e transações protegidos com criptografia de ponta.",
-    color: "text-primary",
-  },
+    title: "Multi-Usuários",
+    description: "Adicione funcionários com permissões personalizadas.",
+    color: "primary"
+  }
 ];
 
 const BenefitsSection = () => {
   return (
-    <section id="beneficios" className="py-24 relative">
-      <div className="container mx-auto px-4">
-        {/* Section header */}
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
-            Por que escolher nossa plataforma?
-          </span>
-          <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-            Tudo que você precisa para{" "}
-            <span className="gradient-text">vender online</span>
-          </h2>
-          <p className="text-muted-foreground text-lg">
-            Recursos poderosos em uma plataforma simples e acessível
-          </p>
-        </div>
+    <section id="recursos" className="py-24 bg-background relative overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/5 rounded-full blur-3xl" />
+      </div>
 
-        {/* Benefits grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="container mx-auto px-4 relative z-10">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-16"
+        >
+          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+            Por que escolher a DigitalHub?
+          </span>
+          <h2 className="text-3xl md:text-5xl font-bold mb-6">
+            Tudo que você precisa para{" "}
+            <span className="text-gradient">vender mais</span>
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Ferramentas poderosas e intuitivas para impulsionar suas vendas de produtos digitais.
+          </p>
+        </motion.div>
+
+        {/* Benefits Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {benefits.map((benefit, index) => (
-            <div
+            <motion.div
               key={benefit.title}
-              className="group p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-[0_0_40px_-10px_hsl(var(--primary)/0.2)]"
-              style={{ animationDelay: `${index * 0.05}s` }}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              className="group"
             >
-              <div className={`w-12 h-12 rounded-xl bg-secondary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                <benefit.icon className={`w-6 h-6 ${benefit.color}`} />
+              <div className="h-full p-6 rounded-2xl bg-gradient-card border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-glow">
+                <div 
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
+                    benefit.color === 'primary' ? 'bg-primary/10' :
+                    benefit.color === 'accent' ? 'bg-accent/10' :
+                    benefit.color === 'success' ? 'bg-success/10' :
+                    'bg-warning/10'
+                  }`}
+                >
+                  <benefit.icon 
+                    className={`w-6 h-6 ${
+                      benefit.color === 'primary' ? 'text-primary' :
+                      benefit.color === 'accent' ? 'text-accent' :
+                      benefit.color === 'success' ? 'text-success' :
+                      'text-warning'
+                    }`} 
+                  />
+                </div>
+                <h3 className="text-lg font-semibold mb-2 text-foreground group-hover:text-primary transition-colors">
+                  {benefit.title}
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                  {benefit.description}
+                </p>
               </div>
-              <h3 className="font-display text-lg font-semibold mb-2">
-                {benefit.title}
-              </h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                {benefit.description}
-              </p>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

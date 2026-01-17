@@ -2,25 +2,27 @@ import Header from "@/components/landing/Header";
 import HeroSection from "@/components/landing/HeroSection";
 import BenefitsSection from "@/components/landing/BenefitsSection";
 import HowItWorksSection from "@/components/landing/HowItWorksSection";
-import FeaturesSection from "@/components/landing/FeaturesSection";
-import ForWhoSection from "@/components/landing/ForWhoSection";
-import SocialProofSection from "@/components/landing/SocialProofSection";
-import FAQSection from "@/components/landing/FAQSection";
-import FinalCTASection from "@/components/landing/FinalCTASection";
+import IntegrationsSection from "@/components/landing/IntegrationsSection";
+import PricingSection from "@/components/landing/PricingSection";
+import GoalsSection from "@/components/landing/GoalsSection";
+import TestimonialsSection from "@/components/landing/TestimonialsSection";
+import CTASection from "@/components/landing/CTASection";
 import Footer from "@/components/landing/Footer";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <HeroSection />
-      <BenefitsSection />
-      <HowItWorksSection />
-      <FeaturesSection />
-      <ForWhoSection />
-      <SocialProofSection />
-      <FAQSection />
-      <FinalCTASection />
+      <main>
+        <HeroSection />
+        <BenefitsSection />
+        <HowItWorksSection />
+        <IntegrationsSection />
+        <PricingSection />
+        <GoalsSection />
+        <TestimonialsSection />
+        <CTASection />
+      </main>
       <Footer />
     </div>
   );

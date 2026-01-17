@@ -1,7 +1,17 @@
-import { AdminHeader } from "@/components/admin/AdminHeader";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { AdminLayout } from "@/components/admin/AdminLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -9,180 +19,199 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter, Download, Eye } from "lucide-react";
-import { useState } from "react";
+import { Search, FileText, AlertTriangle, CheckCircle, Info, XCircle } from "lucide-react";
 
 const logs = [
   {
     id: 1,
-    action: "Usuário banido",
-    actor: "SuperAdmin",
-    target: "João Silva",
-    type: "security",
-    ip: "192.168.1.1",
-    timestamp: "17/01/2024 14:32:45",
-    details: "Motivo: Violação dos termos de uso",
+    type: "info",
+    action: "Login realizado",
+    user: "joao@email.com",
+    details: "IP: 189.10.45.123",
+    timestamp: "15/01/2024 14:30:45",
   },
   {
     id: 2,
-    action: "Loja pausada",
-    actor: "Admin Maria",
-    target: "Digital Assets",
-    type: "moderation",
-    ip: "192.168.1.2",
-    timestamp: "17/01/2024 13:21:12",
-    details: "Produtos suspeitos detectados",
+    type: "success",
+    action: "Saque aprovado",
+    user: "admin@digitalhub.com",
+    details: "Saque #SAQ-001 - R$ 2.500,00 - Loja Digital Pro",
+    timestamp: "15/01/2024 14:25:12",
   },
   {
     id: 3,
-    action: "Configuração alterada",
-    actor: "SuperAdmin",
-    target: "Taxa da plataforma",
-    type: "config",
-    ip: "192.168.1.1",
-    timestamp: "17/01/2024 11:45:30",
-    details: "Alterado de 4.5% para 5%",
+    type: "warning",
+    action: "Tentativa de login bloqueada",
+    user: "suspicious@email.com",
+    details: "3 tentativas falhas em 5 minutos",
+    timestamp: "15/01/2024 14:20:33",
   },
   {
     id: 4,
-    action: "Usuário reativado",
-    actor: "Admin Maria",
-    target: "Pedro Gamer",
-    type: "moderation",
-    ip: "192.168.1.2",
-    timestamp: "17/01/2024 10:15:22",
-    details: "Suspensão removida após revisão",
+    type: "error",
+    action: "Falha no pagamento",
+    user: "maria@email.com",
+    details: "Erro: Cartão recusado - Gateway timeout",
+    timestamp: "15/01/2024 14:15:22",
   },
   {
     id: 5,
-    action: "Gateway atualizado",
-    actor: "SuperAdmin",
-    target: "Mercado Pago",
-    type: "config",
-    ip: "192.168.1.1",
-    timestamp: "16/01/2024 18:33:10",
-    details: "Chaves de API atualizadas",
+    type: "info",
+    action: "Produto criado",
+    user: "pedro@email.com",
+    details: "Produto: Curso de Design - Loja Templates Hub",
+    timestamp: "15/01/2024 14:10:55",
   },
   {
     id: 6,
-    action: "Tentativa de login suspeita",
-    actor: "Sistema",
-    target: "lucas@email.com",
-    type: "security",
-    ip: "45.123.67.89",
-    timestamp: "16/01/2024 16:22:05",
-    details: "5 tentativas falhas em 2 minutos",
+    type: "success",
+    action: "Carteira aprovada",
+    user: "admin@digitalhub.com",
+    details: "Loja: E-books Master - CPF verificado",
+    timestamp: "15/01/2024 14:05:18",
   },
   {
     id: 7,
-    action: "Novo admin criado",
-    actor: "SuperAdmin",
-    target: "maria@storelab.com",
-    type: "admin",
-    ip: "192.168.1.1",
-    timestamp: "16/01/2024 09:10:45",
-    details: "Permissões: moderação, suporte",
+    type: "info",
+    action: "Plano alterado",
+    user: "ana@email.com",
+    details: "Starter → Pro - Templates Hub",
+    timestamp: "15/01/2024 14:00:00",
+  },
+  {
+    id: 8,
+    type: "warning",
+    action: "Limite de produtos atingido",
+    user: "carlos@email.com",
+    details: "Plano Starter - 5/5 produtos",
+    timestamp: "15/01/2024 13:55:42",
   },
 ];
 
-const typeConfig = {
-  security: { label: "Segurança", className: "bg-destructive/20 text-destructive border-destructive/30" },
-  moderation: { label: "Moderação", className: "bg-yellow-500/20 text-yellow-500 border-yellow-500/30" },
-  config: { label: "Configuração", className: "bg-primary/20 text-primary border-primary/30" },
-  admin: { label: "Admin", className: "bg-accent/20 text-accent border-accent/30" },
-};
-
-const AdminLogs = () => {
-  const [searchQuery, setSearchQuery] = useState("");
+export default function AdminLogs() {
+  const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
 
   const filteredLogs = logs.filter((log) => {
-    const matchesSearch = 
-      log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.actor.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.target.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.details.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === "all" || log.type === typeFilter;
     return matchesSearch && matchesType;
   });
 
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "success":
+        return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+      case "warning":
+        return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+      case "error":
+        return <XCircle className="w-4 h-4 text-red-500" />;
+      default:
+        return <Info className="w-4 h-4 text-blue-500" />;
+    }
+  };
+
+  const getTypeBadge = (type: string) => {
+    switch (type) {
+      case "success":
+        return <Badge className="bg-emerald-500/10 text-emerald-500">Sucesso</Badge>;
+      case "warning":
+        return <Badge className="bg-amber-500/10 text-amber-500">Aviso</Badge>;
+      case "error":
+        return <Badge className="bg-red-500/10 text-red-500">Erro</Badge>;
+      default:
+        return <Badge className="bg-blue-500/10 text-blue-500">Info</Badge>;
+    }
+  };
+
   return (
-    <div className="min-h-screen">
-      <AdminHeader
-        title="Logs & Auditoria"
-        subtitle="Histórico de ações administrativas"
-      />
-
-      <div className="p-6 space-y-6">
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por ação, ator ou alvo..."
-              className="pl-9 bg-card border-border"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+    <AdminLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Logs & Auditoria</h1>
+            <p className="text-muted-foreground mt-1">Histórico de atividades da plataforma</p>
           </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-48 bg-card border-border">
-              <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Filtrar por tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os tipos</SelectItem>
-              <SelectItem value="security">Segurança</SelectItem>
-              <SelectItem value="moderation">Moderação</SelectItem>
-              <SelectItem value="config">Configuração</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
-            Exportar
-          </Button>
-        </div>
-
-        {/* Logs List */}
-        <div className="space-y-4">
-          {filteredLogs.map((log) => (
-            <div
-              key={log.id}
-              className="p-4 rounded-xl bg-card border border-border hover:border-primary/20 transition-colors"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Badge
-                      variant="outline"
-                      className={typeConfig[log.type as keyof typeof typeConfig].className}
-                    >
-                      {typeConfig[log.type as keyof typeof typeConfig].label}
-                    </Badge>
-                    <span className="font-semibold">{log.action}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span>Por: <strong className="text-foreground">{log.actor}</strong></span>
-                    <span>Alvo: <strong className="text-foreground">{log.target}</strong></span>
-                    <span>IP: {log.ip}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-2">{log.details}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {log.timestamp}
-                  </span>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <FileText className="w-5 h-5 text-primary" />
             </div>
-          ))}
+            <div>
+              <p className="text-2xl font-bold text-foreground">{logs.length}</p>
+              <p className="text-xs text-muted-foreground">Registros hoje</p>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  );
-};
 
-export default AdminLogs;
+        {/* Filters */}
+        <Card className="bg-card border-border">
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Buscar por ação, usuário ou detalhes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="info">Info</SelectItem>
+                  <SelectItem value="success">Sucesso</SelectItem>
+                  <SelectItem value="warning">Aviso</SelectItem>
+                  <SelectItem value="error">Erro</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline">Exportar</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Logs Table */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle>Histórico de Atividades</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>Ação</TableHead>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Detalhes</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Data/Hora</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredLogs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell>{getTypeIcon(log.type)}</TableCell>
+                    <TableCell className="font-medium">{log.action}</TableCell>
+                    <TableCell>{log.user}</TableCell>
+                    <TableCell className="max-w-xs truncate text-muted-foreground">
+                      {log.details}
+                    </TableCell>
+                    <TableCell>{getTypeBadge(log.type)}</TableCell>
+                    <TableCell className="text-muted-foreground">{log.timestamp}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    </AdminLayout>
+  );
+}
