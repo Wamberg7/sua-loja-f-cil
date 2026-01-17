@@ -3,10 +3,10 @@
 export interface Profile {
   id: string;
   user_id: string;
-  name: string;
+  full_name?: string;
   email: string;
-  phone?: string;
   avatar_url?: string;
+  is_minor?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -31,20 +31,11 @@ export interface Product {
   name: string;
   description?: string;
   price: number;
-  stock: number;
-  image_url?: string;
+  compare_at_price?: number;
+  images?: string[];
+  stock?: number;
+  download_url?: string;
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  variations?: ProductVariation[];
-}
-
-export interface ProductVariation {
-  id: string;
-  product_id: string;
-  name: string;
-  price: number;
-  stock: number;
   created_at: string;
   updated_at: string;
 }
@@ -63,13 +54,14 @@ export interface Order {
   id: string;
   store_id: string;
   customer_email: string;
-  customer_name: string;
+  customer_name?: string;
   customer_phone?: string;
   status: string;
   total: number;
+  subtotal: number;
+  discount: number;
   payment_method?: string;
-  payment_status: string;
-  notes?: string;
+  payment_id?: string;
   created_at: string;
   updated_at: string;
   items?: OrderItem[];
@@ -81,33 +73,17 @@ export interface OrderItem {
   product_id?: string;
   product_name: string;
   quantity: number;
-  unit_price: number;
-  total: number;
+  price: number;
   created_at: string;
 }
 
-export interface Transaction {
+export interface Wallet {
   id: string;
   store_id: string;
-  order_id?: string;
-  type: string;
-  amount: number;
-  status: string;
-  payment_gateway?: string;
-  external_id?: string;
-  metadata?: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Withdrawal {
-  id: string;
-  store_id: string;
-  amount: number;
-  status: string;
-  pix_key?: string;
-  pix_key_type?: string;
-  processed_at?: string;
+  available: number;
+  pending: number;
+  reserved: number;
+  is_approved: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +94,21 @@ export interface WalletBalance {
   reserved: number;
 }
 
+export interface Coupon {
+  id: string;
+  store_id: string;
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  min_order_value?: number;
+  max_uses?: number;
+  uses_count: number;
+  is_active: boolean;
+  expires_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface StoreStats {
   sales_today: number;
   sales_today_change: number;
@@ -126,4 +117,11 @@ export interface StoreStats {
   customers_count: number;
   customers_change: number;
   products_count: number;
+}
+
+export interface UserRole {
+  id: string;
+  user_id: string;
+  role: "superadmin" | "admin" | "seller";
+  created_at: string;
 }

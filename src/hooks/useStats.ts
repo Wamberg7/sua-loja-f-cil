@@ -31,41 +31,41 @@ export const useStoreStats = () => {
 
       // Sales today
       const { data: salesToday } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("total")
         .eq("store_id", store.id)
-        .eq("payment_status", "paid")
+        .eq("status", "paid")
         .gte("created_at", todayIso);
 
-      const salesTodayTotal = (salesToday || []).reduce((sum, o) => sum + Number(o.total), 0);
+      const salesTodayTotal = ((salesToday || []) as { total: number }[]).reduce((sum, o) => sum + Number(o.total), 0);
 
       // Sales yesterday
       const { data: salesYesterday } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("total")
         .eq("store_id", store.id)
-        .eq("payment_status", "paid")
+        .eq("status", "paid")
         .gte("created_at", yesterdayIso)
         .lt("created_at", todayIso);
 
-      const salesYesterdayTotal = (salesYesterday || []).reduce((sum, o) => sum + Number(o.total), 0);
+      const salesYesterdayTotal = ((salesYesterday || []) as { total: number }[]).reduce((sum, o) => sum + Number(o.total), 0);
 
       // Orders count
       const { count: ordersCount } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("*", { count: "exact", head: true })
         .eq("store_id", store.id);
 
       // Orders today
       const { count: ordersTodayCount } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("*", { count: "exact", head: true })
         .eq("store_id", store.id)
         .gte("created_at", todayIso);
 
       // Orders yesterday
       const { count: ordersYesterdayCount } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("*", { count: "exact", head: true })
         .eq("store_id", store.id)
         .gte("created_at", yesterdayIso)
@@ -73,15 +73,15 @@ export const useStoreStats = () => {
 
       // Unique customers
       const { data: customers } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("customer_email")
         .eq("store_id", store.id);
 
-      const uniqueCustomers = new Set((customers || []).map(c => c.customer_email)).size;
+      const uniqueCustomers = new Set(((customers || []) as { customer_email: string }[]).map(c => c.customer_email)).size;
 
       // Products count
       const { count: productsCount } = await supabase
-        .from("products")
+        .from("products" as never)
         .select("*", { count: "exact", head: true })
         .eq("store_id", store.id);
 
@@ -95,7 +95,7 @@ export const useStoreStats = () => {
         : (ordersTodayCount || 0) > 0 ? 100 : 0;
 
       return {
-        sales_today: salesTodayTotal * 100, // Convert to cents
+        sales_today: salesTodayTotal,
         sales_today_change: salesChange,
         orders_count: ordersCount || 0,
         orders_change: ordersChange,
@@ -114,32 +114,52 @@ export const useAdminStats = () => {
     queryFn: async () => {
       // Get total stores
       const { count: storesCount } = await supabase
-        .from("stores")
+        .from("stores" as never)
+        .select("*", { count: "exact", head: true });
+
+      // Get total users
+      const { count: usersCount } = await supabase
+        .from("profiles" as never)
         .select("*", { count: "exact", head: true });
 
       // Get total orders
       const { count: ordersCount } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("*", { count: "exact", head: true });
 
       // Get total products
       const { count: productsCount } = await supabase
-        .from("products")
+        .from("products" as never)
         .select("*", { count: "exact", head: true });
 
       // Get total revenue
       const { data: orders } = await supabase
-        .from("orders")
+        .from("orders" as never)
         .select("total")
-        .eq("payment_status", "paid");
+        .eq("status", "paid");
 
-      const totalRevenue = (orders || []).reduce((sum, o) => sum + Number(o.total), 0);
+      const totalRevenue = ((orders || []) as { total: number }[]).reduce((sum, o) => sum + Number(o.total), 0);
+
+      // Get today's stats
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayIso = today.toISOString();
+
+      const { data: salesToday } = await supabase
+        .from("orders" as never)
+        .select("total")
+        .eq("status", "paid")
+        .gte("created_at", todayIso);
+
+      const salesTodayTotal = ((salesToday || []) as { total: number }[]).reduce((sum, o) => sum + Number(o.total), 0);
 
       return {
         stores_count: storesCount || 0,
+        users_count: usersCount || 0,
         orders_count: ordersCount || 0,
         products_count: productsCount || 0,
         total_revenue: totalRevenue,
+        sales_today: salesTodayTotal,
       };
     },
   });

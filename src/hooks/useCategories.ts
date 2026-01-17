@@ -13,13 +13,13 @@ export const useCategories = () => {
       if (!store?.id) return [];
       
       const { data, error } = await supabase
-        .from("categories")
+        .from("categories" as never)
         .select("*")
         .eq("store_id", store.id)
         .order("name", { ascending: true });
       
       if (error) throw new Error(error.message);
-      return (data || []) as Category[];
+      return (data || []) as unknown as Category[];
     },
     enabled: !!store?.id,
   });
@@ -30,13 +30,13 @@ export const useCategory = (id: string) => {
     queryKey: ["categories", id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("categories")
+        .from("categories" as never)
         .select("*")
         .eq("id", id)
         .maybeSingle();
       
       if (error) throw new Error(error.message);
-      return data as Category | null;
+      return data as unknown as Category | null;
     },
     enabled: !!id,
   });
@@ -51,18 +51,18 @@ export const useCreateCategory = () => {
       if (!store?.id) throw new Error("Loja não encontrada");
       
       const { data, error } = await supabase
-        .from("categories")
+        .from("categories" as never)
         .insert({
           store_id: store.id,
           name: category.name || "",
           description: category.description,
           is_active: category.is_active ?? true,
-        })
+        } as never)
         .select()
         .single();
       
       if (error) throw new Error(error.message);
-      return data as Category;
+      return data as unknown as Category;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
@@ -80,18 +80,18 @@ export const useUpdateCategory = () => {
   return useMutation({
     mutationFn: async ({ id, ...category }: Partial<Category> & { id: string }) => {
       const { data, error } = await supabase
-        .from("categories")
+        .from("categories" as never)
         .update({
           name: category.name,
           description: category.description,
           is_active: category.is_active,
-        })
+        } as never)
         .eq("id", id)
         .select()
         .single();
       
       if (error) throw new Error(error.message);
-      return data as Category;
+      return data as unknown as Category;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
@@ -109,7 +109,7 @@ export const useDeleteCategory = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("categories")
+        .from("categories" as never)
         .delete()
         .eq("id", id);
       

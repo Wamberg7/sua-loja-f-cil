@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AdminRoute } from "@/components/auth/AdminRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -32,6 +34,7 @@ import AdminGoals from "./pages/admin/AdminGoals";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminWalletApproval from "./pages/admin/AdminWalletApproval";
 import AdminWithdrawals from "./pages/admin/AdminWithdrawals";
+import AdminSettings from "./pages/admin/AdminSettings";
 
 const queryClient = new QueryClient();
 
@@ -43,34 +46,122 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/termos" element={<TermsOfService />} />
-          <Route path="/privacidade" element={<PrivacyPolicy />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/cadastro" element={<Register />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/produtos" element={<Products />} />
-          <Route path="/dashboard/categorias" element={<Categories />} />
-          <Route path="/dashboard/cupons" element={<Coupons />} />
-          <Route path="/dashboard/pedidos" element={<Orders />} />
-          <Route path="/dashboard/carteira" element={<WalletPage />} />
-          <Route path="/dashboard/metas" element={<Goals />} />
-          <Route path="/dashboard/planos" element={<Plans />} />
-          <Route path="/dashboard/clientes" element={<Customers />} />
-          <Route path="/dashboard/configuracoes" element={<Settings />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/lojas" element={<AdminStores />} />
-          <Route path="/admin/usuarios" element={<AdminUsers />} />
-          <Route path="/admin/vendas" element={<AdminSales />} />
-          <Route path="/admin/financeiro" element={<AdminFinancial />} />
-          <Route path="/admin/planos" element={<AdminPlans />} />
-          <Route path="/admin/metas" element={<AdminGoals />} />
-          <Route path="/admin/logs" element={<AdminLogs />} />
-          <Route path="/admin/aprovacao-carteira" element={<AdminWalletApproval />} />
-          <Route path="/admin/saques" element={<AdminWithdrawals />} />
-          
+            {/* Public Routes */}
+            <Route path="/" element={<Index />} />
+            <Route path="/termos" element={<TermsOfService />} />
+            <Route path="/privacidade" element={<PrivacyPolicy />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/cadastro" element={<Register />} />
+            
+            {/* Protected Seller Routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/produtos" element={
+              <ProtectedRoute>
+                <Products />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/categorias" element={
+              <ProtectedRoute>
+                <Categories />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/cupons" element={
+              <ProtectedRoute>
+                <Coupons />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/pedidos" element={
+              <ProtectedRoute>
+                <Orders />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/carteira" element={
+              <ProtectedRoute>
+                <WalletPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/metas" element={
+              <ProtectedRoute>
+                <Goals />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/planos" element={
+              <ProtectedRoute>
+                <Plans />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/clientes" element={
+              <ProtectedRoute>
+                <Customers />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/configuracoes" element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin Routes - Protected by role */}
+            <Route path="/admin" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminDashboard />
+              </AdminRoute>
+            } />
+            <Route path="/admin/lojas" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminStores />
+              </AdminRoute>
+            } />
+            <Route path="/admin/usuarios" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminUsers />
+              </AdminRoute>
+            } />
+            <Route path="/admin/vendas" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminSales />
+              </AdminRoute>
+            } />
+            <Route path="/admin/financeiro" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminFinancial />
+              </AdminRoute>
+            } />
+            <Route path="/admin/planos" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminPlans />
+              </AdminRoute>
+            } />
+            <Route path="/admin/metas" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminGoals />
+              </AdminRoute>
+            } />
+            <Route path="/admin/logs" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminLogs />
+              </AdminRoute>
+            } />
+            <Route path="/admin/aprovacao-carteira" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminWalletApproval />
+              </AdminRoute>
+            } />
+            <Route path="/admin/saques" element={
+              <AdminRoute allowedRoles={["superadmin", "admin"]}>
+                <AdminWithdrawals />
+              </AdminRoute>
+            } />
+            <Route path="/admin/configuracoes" element={
+              <AdminRoute allowedRoles={["superadmin"]}>
+                <AdminSettings />
+              </AdminRoute>
+            } />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
