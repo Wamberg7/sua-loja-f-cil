@@ -80,3 +80,20 @@ export const useAllPlans = () => {
     updatePlan,
   };
 };
+
+// Alias for seller dashboard
+export const usePlans = () => {
+  return useQuery({
+    queryKey: ['plans'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('price', { ascending: true });
+
+      if (error) throw error;
+      return data as Plan[];
+    },
+  });
+};

@@ -106,3 +106,38 @@ export const useAllGoals = () => {
     totalAchieved,
   };
 };
+
+// Alias for seller dashboard
+export const useGoals = () => {
+  return useQuery({
+    queryKey: ['goals'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('is_active', true)
+        .order('target_amount', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+};
+
+export const useUserGoals = () => {
+  return useQuery({
+    queryKey: ['user-goals'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('user_goals')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+};

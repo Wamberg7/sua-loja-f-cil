@@ -7,12 +7,12 @@ import {
   Mail,
   RefreshCw,
   Eye,
-  X,
   CheckCircle,
   Clock,
   XCircle,
   CreditCard,
-  Wallet
+  Wallet,
+  Loader2
 } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -30,132 +30,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-interface Order {
-  id: string;
-  date: string;
-  customer: {
-    name: string;
-    email: string;
-  };
-  product: {
-    name: string;
-    variation?: string;
-    category: string;
-  };
-  grossValue: number;
-  fee: number;
-  netValue: number;
-  status: "paid" | "pending" | "cancelled" | "refunded";
-  paymentMethod: "pix" | "card";
-  walletStatus: "released" | "pending" | "reserved";
-  releaseRule: "rule1" | "rule2";
-  releaseDate: string;
-  emailStatus: "sent" | "pending" | "failed";
-  emailLog: string[];
-}
-
-const mockOrders: Order[] = [
-  {
-    id: "#1234",
-    date: "2024-01-20T14:30:00",
-    customer: { name: "Maria Silva", email: "maria@email.com" },
-    product: { name: "Curso de Marketing Digital", variation: "Completo", category: "Cursos Online" },
-    grossValue: 297,
-    fee: 9.71,
-    netValue: 287.29,
-    status: "paid",
-    paymentMethod: "pix",
-    walletStatus: "released",
-    releaseRule: "rule1",
-    releaseDate: "2024-02-04",
-    emailStatus: "sent",
-    emailLog: ["2024-01-20 14:31 - Email enviado com sucesso"]
-  },
-  {
-    id: "#1233",
-    date: "2024-01-20T10:15:00",
-    customer: { name: "João Santos", email: "joao@email.com" },
-    product: { name: "Template Premium", category: "Templates" },
-    grossValue: 47,
-    fee: 2.21,
-    netValue: 44.79,
-    status: "paid",
-    paymentMethod: "card",
-    walletStatus: "pending",
-    releaseRule: "rule2",
-    releaseDate: "2024-01-21",
-    emailStatus: "sent",
-    emailLog: ["2024-01-20 10:16 - Email enviado com sucesso"]
-  },
-  {
-    id: "#1232",
-    date: "2024-01-19T18:45:00",
-    customer: { name: "Ana Costa", email: "ana@email.com" },
-    product: { name: "E-book Completo", category: "E-books" },
-    grossValue: 27,
-    fee: 1.61,
-    netValue: 25.39,
-    status: "pending",
-    paymentMethod: "pix",
-    walletStatus: "pending",
-    releaseRule: "rule1",
-    releaseDate: "-",
-    emailStatus: "pending",
-    emailLog: []
-  },
-  {
-    id: "#1231",
-    date: "2024-01-19T09:20:00",
-    customer: { name: "Pedro Lima", email: "pedro@email.com" },
-    product: { name: "Pack de Icons", category: "Templates" },
-    grossValue: 19,
-    fee: 1.37,
-    netValue: 17.63,
-    status: "paid",
-    paymentMethod: "card",
-    walletStatus: "reserved",
-    releaseRule: "rule1",
-    releaseDate: "2024-02-03",
-    emailStatus: "sent",
-    emailLog: ["2024-01-19 09:21 - Email enviado com sucesso"]
-  },
-  {
-    id: "#1230",
-    date: "2024-01-18T16:00:00",
-    customer: { name: "Carla Mendes", email: "carla@email.com" },
-    product: { name: "Curso de Design", variation: "Pro", category: "Cursos Online" },
-    grossValue: 197,
-    fee: 6.71,
-    netValue: 190.29,
-    status: "refunded",
-    paymentMethod: "pix",
-    walletStatus: "pending",
-    releaseRule: "rule1",
-    releaseDate: "-",
-    emailStatus: "failed",
-    emailLog: ["2024-01-18 16:01 - Erro ao enviar email", "2024-01-18 16:05 - Tentativa de reenvio falhou"]
-  },
-];
+import { useOrders } from "@/hooks/useOrders";
+import { Order } from "@/lib/types";
 
 const Orders = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [periodFilter, setPeriodFilter] = useState<string>("all");
-  const [orders] = useState<Order[]>(mockOrders);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  const { data: orders = [], isLoading } = useOrders();
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = 
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      order.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer_email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const formatDate = (dateStr: string) => {
-    if (dateStr === "-") return "-";
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
@@ -164,7 +59,7 @@ const Orders = () => {
   };
 
   const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return (value / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
   const getStatusConfig = (status: string) => {
@@ -182,22 +77,9 @@ const Orders = () => {
     }
   };
 
-  const getWalletStatusConfig = (status: string) => {
-    switch (status) {
-      case "released":
-        return { label: "Liberado", color: "text-success" };
-      case "pending":
-        return { label: "Pendente", color: "text-warning" };
-      case "reserved":
-        return { label: "Reservado", color: "text-accent" };
-      default:
-        return { label: status, color: "text-muted-foreground" };
-    }
-  };
-
-  const handleResendEmail = (orderId: string) => {
-    console.log("Reenviando email para pedido:", orderId);
-    // Implementation would go here
+  // Calculate fee and net value (3% + R$ 0,80)
+  const calculateFee = (total: number) => {
+    return Math.round(total * 0.03) + 80; // 3% + R$ 0,80 (80 centavos)
   };
 
   return (
@@ -246,7 +128,11 @@ const Orders = () => {
       </div>
 
       {/* Orders List */}
-      {filteredOrders.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : filteredOrders.length === 0 ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -265,7 +151,6 @@ const Orders = () => {
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">ID</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Data</th>
                   <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground">Cliente</th>
-                  <th className="text-left py-4 px-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Produto</th>
                   <th className="text-right py-4 px-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Bruto</th>
                   <th className="text-right py-4 px-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Taxa</th>
                   <th className="text-right py-4 px-4 text-sm font-medium text-muted-foreground">Líquido</th>
@@ -279,6 +164,8 @@ const Orders = () => {
                   {filteredOrders.map((order, index) => {
                     const statusConfig = getStatusConfig(order.status);
                     const StatusIcon = statusConfig.icon;
+                    const fee = calculateFee(order.total);
+                    const netValue = order.total - fee;
                     return (
                       <motion.tr
                         key={order.id}
@@ -287,30 +174,22 @@ const Orders = () => {
                         transition={{ delay: index * 0.03 }}
                         className="border-b border-border/50 hover:bg-secondary/30 transition-colors"
                       >
-                        <td className="py-4 px-4 font-medium text-foreground">{order.id}</td>
-                        <td className="py-4 px-4 text-sm text-muted-foreground">{formatDate(order.date)}</td>
+                        <td className="py-4 px-4 font-medium text-foreground">#{order.id.slice(0, 8)}</td>
+                        <td className="py-4 px-4 text-sm text-muted-foreground">{formatDate(order.created_at)}</td>
                         <td className="py-4 px-4">
                           <div>
-                            <p className="font-medium text-foreground text-sm">{order.customer.name}</p>
-                            <p className="text-xs text-muted-foreground">{order.customer.email}</p>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 hidden lg:table-cell">
-                          <div>
-                            <p className="text-sm text-foreground">{order.product.name}</p>
-                            {order.product.variation && (
-                              <p className="text-xs text-muted-foreground">{order.product.variation}</p>
-                            )}
+                            <p className="font-medium text-foreground text-sm">{order.customer_name || "-"}</p>
+                            <p className="text-xs text-muted-foreground">{order.customer_email}</p>
                           </div>
                         </td>
                         <td className="py-4 px-4 text-right text-sm text-muted-foreground hidden md:table-cell">
-                          {formatCurrency(order.grossValue)}
+                          {formatCurrency(order.total)}
                         </td>
                         <td className="py-4 px-4 text-right text-sm text-destructive hidden md:table-cell">
-                          -{formatCurrency(order.fee)}
+                          -{formatCurrency(fee)}
                         </td>
                         <td className="py-4 px-4 text-right font-semibold text-primary">
-                          {formatCurrency(order.netValue)}
+                          {formatCurrency(netValue)}
                         </td>
                         <td className="py-4 px-4">
                           <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color}`}>
@@ -320,12 +199,12 @@ const Orders = () => {
                         </td>
                         <td className="py-4 px-4 hidden sm:table-cell">
                           <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                            {order.paymentMethod === "pix" ? (
+                            {order.payment_method === "pix" ? (
                               <Wallet className="w-4 h-4" />
                             ) : (
                               <CreditCard className="w-4 h-4" />
                             )}
-                            {order.paymentMethod === "pix" ? "Pix" : "Cartão"}
+                            {order.payment_method === "pix" ? "Pix" : order.payment_method === "card" ? "Cartão" : "-"}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-right">
@@ -352,7 +231,7 @@ const Orders = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              Pedido {selectedOrder?.id}
+              Pedido #{selectedOrder?.id.slice(0, 8)}
               {selectedOrder && (
                 <span className={`text-sm px-2 py-1 rounded-full ${getStatusConfig(selectedOrder.status).color}`}>
                   {getStatusConfig(selectedOrder.status).label}
@@ -369,33 +248,18 @@ const Orders = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground">Nome</p>
-                    <p className="font-medium text-foreground">{selectedOrder.customer.name}</p>
+                    <p className="font-medium text-foreground">{selectedOrder.customer_name || "-"}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Email</p>
-                    <p className="font-medium text-foreground">{selectedOrder.customer.email}</p>
+                    <p className="font-medium text-foreground">{selectedOrder.customer_email}</p>
                   </div>
-                </div>
-              </div>
-
-              {/* Product Info */}
-              <div className="p-4 rounded-xl bg-secondary/50">
-                <h4 className="font-medium text-foreground mb-3">Produto</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Nome</p>
-                    <p className="font-medium text-foreground">{selectedOrder.product.name}</p>
-                  </div>
-                  {selectedOrder.product.variation && (
+                  {selectedOrder.customer_phone && (
                     <div>
-                      <p className="text-muted-foreground">Variação</p>
-                      <p className="font-medium text-foreground">{selectedOrder.product.variation}</p>
+                      <p className="text-muted-foreground">Telefone</p>
+                      <p className="font-medium text-foreground">{selectedOrder.customer_phone}</p>
                     </div>
                   )}
-                  <div>
-                    <p className="text-muted-foreground">Categoria</p>
-                    <p className="font-medium text-foreground">{selectedOrder.product.category}</p>
-                  </div>
                 </div>
               </div>
 
@@ -404,81 +268,62 @@ const Orders = () => {
                 <h4 className="font-medium text-foreground mb-3">Financeiro</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium text-foreground">{formatCurrency(selectedOrder.subtotal)}</span>
+                  </div>
+                  {selectedOrder.discount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Desconto</span>
+                      <span className="font-medium text-success">-{formatCurrency(selectedOrder.discount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Valor Bruto</span>
-                    <span className="font-medium text-foreground">{formatCurrency(selectedOrder.grossValue)}</span>
+                    <span className="font-medium text-foreground">{formatCurrency(selectedOrder.total)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Taxa (3% + R$ 0,80)</span>
-                    <span className="font-medium text-destructive">-{formatCurrency(selectedOrder.fee)}</span>
+                    <span className="font-medium text-destructive">-{formatCurrency(calculateFee(selectedOrder.total))}</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t border-border">
                     <span className="font-medium text-foreground">Valor Líquido</span>
-                    <span className="font-bold text-primary">{formatCurrency(selectedOrder.netValue)}</span>
+                    <span className="font-bold text-primary">{formatCurrency(selectedOrder.total - calculateFee(selectedOrder.total))}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Wallet Info */}
+              {/* Order Items */}
+              {selectedOrder.items && selectedOrder.items.length > 0 && (
+                <div className="p-4 rounded-xl bg-secondary/50">
+                  <h4 className="font-medium text-foreground mb-3">Itens do Pedido</h4>
+                  <div className="space-y-2">
+                    {selectedOrder.items.map((item) => (
+                      <div key={item.id} className="flex justify-between text-sm">
+                        <span className="text-foreground">
+                          {item.quantity}x {item.product_name}
+                        </span>
+                        <span className="font-medium text-foreground">{formatCurrency(item.price * item.quantity)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Order Info */}
               <div className="p-4 rounded-xl bg-secondary/50">
-                <h4 className="font-medium text-foreground mb-3">Carteira</h4>
+                <h4 className="font-medium text-foreground mb-3">Informações do Pedido</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-muted-foreground">Status</p>
-                    <p className={`font-medium ${getWalletStatusConfig(selectedOrder.walletStatus).color}`}>
-                      {getWalletStatusConfig(selectedOrder.walletStatus).label}
-                    </p>
+                    <p className="text-muted-foreground">Data do Pedido</p>
+                    <p className="font-medium text-foreground">{formatDateTime(selectedOrder.created_at)}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Regra Aplicada</p>
+                    <p className="text-muted-foreground">Método de Pagamento</p>
                     <p className="font-medium text-foreground">
-                      {selectedOrder.releaseRule === "rule1" ? "Regra 1 - 4% últimos 15 dias" : "Regra 2 - Maior venda 24h"}
+                      {selectedOrder.payment_method === "pix" ? "Pix" : 
+                       selectedOrder.payment_method === "card" ? "Cartão" : "-"}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Data da Venda</p>
-                    <p className="font-medium text-foreground">{formatDateTime(selectedOrder.date)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Data de Liberação</p>
-                    <p className="font-medium text-foreground">{formatDate(selectedOrder.releaseDate)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Email Info */}
-              <div className="p-4 rounded-xl bg-secondary/50">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-foreground">Entrega Digital</h4>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleResendEmail(selectedOrder.id)}
-                    className="gap-2"
-                  >
-                    <Mail className="w-4 h-4" />
-                    Reenviar
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-muted-foreground">Status:</span>
-                    <span className={`font-medium ${
-                      selectedOrder.emailStatus === "sent" ? "text-success" :
-                      selectedOrder.emailStatus === "pending" ? "text-warning" :
-                      "text-destructive"
-                    }`}>
-                      {selectedOrder.emailStatus === "sent" ? "Enviado" :
-                       selectedOrder.emailStatus === "pending" ? "Pendente" :
-                       "Falhou"}
-                    </span>
-                  </div>
-                  {selectedOrder.emailLog.length > 0 && (
-                    <div className="mt-2 p-3 rounded-lg bg-background text-xs font-mono space-y-1">
-                      {selectedOrder.emailLog.map((log, i) => (
-                        <p key={i} className="text-muted-foreground">{log}</p>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
