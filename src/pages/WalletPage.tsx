@@ -120,6 +120,36 @@ const isValidRandomKey = (key: string): boolean => {
   return uuidRegex.test(key.trim()) || evpRegex.test(key.trim());
 };
 
+// Máscaras de formatação
+const formatCPF = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  return digits
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+};
+
+const formatCNPJ = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 14);
+  return digits
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+};
+
+const formatPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 10) {
+    return digits
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{4})(\d)/, '$1-$2');
+  }
+  return digits
+    .replace(/(\d{2})(\d)/, '($1) $2')
+    .replace(/(\d{5})(\d)/, '$1-$2');
+};
+
 const WalletPage = () => {
   const { data: wallet, isLoading } = useWalletBalance();
   const { data: withdrawals, isLoading: isLoadingWithdrawals } = useSellerWithdrawals();
@@ -642,8 +672,19 @@ const WalletPage = () => {
                         'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
                       }
                       value={pixKey}
-                      onChange={(e) => setPixKey(e.target.value)}
+                      onChange={(e) => {
+                        let value = e.target.value;
+                        if (pixType === 'cpf') {
+                          value = formatCPF(value);
+                        } else if (pixType === 'cnpj') {
+                          value = formatCNPJ(value);
+                        } else if (pixType === 'phone') {
+                          value = formatPhone(value);
+                        }
+                        setPixKey(value);
+                      }}
                       className={cn(
+                        "pr-10",
                         pixKey && !pixValidation.isValid && "border-destructive focus-visible:ring-destructive",
                         pixKey && pixValidation.isValid && "border-success focus-visible:ring-success"
                       )}
