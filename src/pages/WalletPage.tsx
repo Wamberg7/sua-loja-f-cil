@@ -48,6 +48,78 @@ import { cn } from "@/lib/utils";
 type WithdrawType = 'manual' | 'automatic' | null;
 type ModalStep = 'select' | 'form';
 
+// Validação de CPF
+const isValidCPF = (cpf: string): boolean => {
+  const cleanCPF = cpf.replace(/\D/g, '');
+  if (cleanCPF.length !== 11) return false;
+  if (/^(\d)\1+$/.test(cleanCPF)) return false;
+  
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(cleanCPF[i]) * (10 - i);
+  }
+  let digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  if (digit !== parseInt(cleanCPF[9])) return false;
+  
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(cleanCPF[i]) * (11 - i);
+  }
+  digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  if (digit !== parseInt(cleanCPF[10])) return false;
+  
+  return true;
+};
+
+// Validação de CNPJ
+const isValidCNPJ = (cnpj: string): boolean => {
+  const cleanCNPJ = cnpj.replace(/\D/g, '');
+  if (cleanCNPJ.length !== 14) return false;
+  if (/^(\d)\1+$/.test(cleanCNPJ)) return false;
+  
+  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    sum += parseInt(cleanCNPJ[i]) * weights1[i];
+  }
+  let digit = sum % 11;
+  digit = digit < 2 ? 0 : 11 - digit;
+  if (digit !== parseInt(cleanCNPJ[12])) return false;
+  
+  sum = 0;
+  for (let i = 0; i < 13; i++) {
+    sum += parseInt(cleanCNPJ[i]) * weights2[i];
+  }
+  digit = sum % 11;
+  digit = digit < 2 ? 0 : 11 - digit;
+  if (digit !== parseInt(cleanCNPJ[13])) return false;
+  
+  return true;
+};
+
+// Validação de Email
+const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email.trim()) && email.length <= 255;
+};
+
+// Validação de Telefone
+const isValidPhone = (phone: string): boolean => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  return cleanPhone.length >= 10 && cleanPhone.length <= 11;
+};
+
+// Validação de Chave Aleatória (formato UUID ou EVP)
+const isValidRandomKey = (key: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const evpRegex = /^[0-9a-zA-Z]{32}$/;
+  return uuidRegex.test(key.trim()) || evpRegex.test(key.trim());
+};
+
 const WalletPage = () => {
   const { data: wallet, isLoading } = useWalletBalance();
   const { data: withdrawals, isLoading: isLoadingWithdrawals } = useSellerWithdrawals();
@@ -89,6 +161,44 @@ const WalletPage = () => {
     if (amountCents <= getFee()) return false; // Deve ser maior que a taxa
     return true;
   };
+
+  const validatePixKey = (): { isValid: boolean; error: string } => {
+    if (!pixKey.trim()) {
+      return { isValid: false, error: "Chave PIX é obrigatória" };
+    }
+
+    switch (pixType) {
+      case 'cpf':
+        if (!isValidCPF(pixKey)) {
+          return { isValid: false, error: "CPF inválido" };
+        }
+        break;
+      case 'cnpj':
+        if (!isValidCNPJ(pixKey)) {
+          return { isValid: false, error: "CNPJ inválido" };
+        }
+        break;
+      case 'email':
+        if (!isValidEmail(pixKey)) {
+          return { isValid: false, error: "E-mail inválido" };
+        }
+        break;
+      case 'phone':
+        if (!isValidPhone(pixKey)) {
+          return { isValid: false, error: "Telefone inválido (deve ter 10 ou 11 dígitos)" };
+        }
+        break;
+      case 'random':
+        if (!isValidRandomKey(pixKey)) {
+          return { isValid: false, error: "Chave aleatória inválida (formato UUID)" };
+        }
+        break;
+    }
+
+    return { isValid: true, error: "" };
+  };
+
+  const pixValidation = validatePixKey();
 
   const handleWithdraw = () => {
     const amountCents = getAmountInCents();
@@ -505,7 +615,7 @@ const WalletPage = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="pixType">Tipo de chave PIX</Label>
-                  <Select value={pixType} onValueChange={setPixType}>
+                  <Select value={pixType} onValueChange={(value) => { setPixType(value); setPixKey(""); }}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -521,18 +631,36 @@ const WalletPage = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="pixKey">Chave PIX</Label>
-                  <Input
-                    id="pixKey"
-                    placeholder={
-                      pixType === 'cpf' ? '000.000.000-00' :
-                      pixType === 'cnpj' ? '00.000.000/0000-00' :
-                      pixType === 'email' ? 'seu@email.com' :
-                      pixType === 'phone' ? '(00) 00000-0000' :
-                      'Chave aleatória'
-                    }
-                    value={pixKey}
-                    onChange={(e) => setPixKey(e.target.value)}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="pixKey"
+                      placeholder={
+                        pixType === 'cpf' ? '000.000.000-00' :
+                        pixType === 'cnpj' ? '00.000.000/0000-00' :
+                        pixType === 'email' ? 'seu@email.com' :
+                        pixType === 'phone' ? '(00) 00000-0000' :
+                        'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+                      }
+                      value={pixKey}
+                      onChange={(e) => setPixKey(e.target.value)}
+                      className={cn(
+                        pixKey && !pixValidation.isValid && "border-destructive focus-visible:ring-destructive",
+                        pixKey && pixValidation.isValid && "border-success focus-visible:ring-success"
+                      )}
+                    />
+                    {pixKey && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {pixValidation.isValid ? (
+                          <CheckCircle2 className="w-4 h-4 text-success" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-destructive" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {pixKey && !pixValidation.isValid && (
+                    <p className="text-xs text-destructive">{pixValidation.error}</p>
+                  )}
                 </div>
 
                 <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
@@ -558,7 +686,7 @@ const WalletPage = () => {
                       ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" 
                       : "bg-gradient-primary"
                   )}
-                  disabled={createWithdrawal.isPending || !isValidAmount() || !pixKey.trim()}
+                  disabled={createWithdrawal.isPending || !isValidAmount() || !pixValidation.isValid}
                 >
                   {createWithdrawal.isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
