@@ -10,7 +10,8 @@ import {
   Calendar,
   Percent,
   DollarSign,
-  Filter
+  Filter,
+  Loader2
 } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -36,96 +37,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-interface Coupon {
-  id: string;
-  code: string;
-  type: "percentage" | "fixed";
-  value: number;
-  startDate: string;
-  endDate: string;
-  usageLimit: number;
-  usageCount: number;
-  application: "all" | "product" | "category";
-  applicationId?: string;
-  minValue?: number;
-  status: "active" | "inactive";
-}
-
-const mockCoupons: Coupon[] = [
-  { 
-    id: "1", 
-    code: "DESCONTO10", 
-    type: "percentage", 
-    value: 10, 
-    startDate: "2024-01-01", 
-    endDate: "2024-12-31", 
-    usageLimit: 100, 
-    usageCount: 45, 
-    application: "all",
-    status: "active" 
-  },
-  { 
-    id: "2", 
-    code: "PROMO50", 
-    type: "fixed", 
-    value: 50, 
-    startDate: "2024-01-01", 
-    endDate: "2024-06-30", 
-    usageLimit: 50, 
-    usageCount: 50, 
-    application: "product",
-    applicationId: "1",
-    minValue: 100,
-    status: "inactive" 
-  },
-  { 
-    id: "3", 
-    code: "CURSOS20", 
-    type: "percentage", 
-    value: 20, 
-    startDate: "2024-02-01", 
-    endDate: "2024-03-31", 
-    usageLimit: 200, 
-    usageCount: 78, 
-    application: "category",
-    applicationId: "1",
-    status: "active" 
-  },
-];
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useCoupons, useCreateCoupon, useUpdateCoupon, useDeleteCoupon } from "@/hooks/useCoupons";
+import { Coupon } from "@/lib/types";
 
 const Coupons = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [coupons, setCoupons] = useState<Coupon[]>(mockCoupons);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+  const [deleteCouponId, setDeleteCouponId] = useState<string | null>(null);
+
+  const { data: coupons = [], isLoading } = useCoupons();
+  const createCoupon = useCreateCoupon();
+  const updateCoupon = useUpdateCoupon();
+  const deleteCoupon = useDeleteCoupon();
   
   const [formData, setFormData] = useState({
     code: "",
-    type: "percentage" as "percentage" | "fixed",
-    value: 0,
-    startDate: "",
-    endDate: "",
-    usageLimit: 0,
-    application: "all" as "all" | "product" | "category",
-    applicationId: "",
-    minValue: 0,
-    status: true
+    discount_type: "percentage" as "percentage" | "fixed",
+    discount_value: 0,
+    expires_at: "",
+    max_uses: 0,
+    min_order_value: 0,
+    is_active: true
   });
 
   const resetForm = () => {
     setFormData({
       code: "",
-      type: "percentage",
-      value: 0,
-      startDate: "",
-      endDate: "",
-      usageLimit: 0,
-      application: "all",
-      applicationId: "",
-      minValue: 0,
-      status: true
+      discount_type: "percentage",
+      discount_value: 0,
+      expires_at: "",
+      max_uses: 0,
+      min_order_value: 0,
+      is_active: true
     });
     setEditingCoupon(null);
   };
@@ -139,80 +94,62 @@ const Coupons = () => {
     setEditingCoupon(coupon);
     setFormData({
       code: coupon.code,
-      type: coupon.type,
-      value: coupon.value,
-      startDate: coupon.startDate,
-      endDate: coupon.endDate,
-      usageLimit: coupon.usageLimit,
-      application: coupon.application,
-      applicationId: coupon.applicationId || "",
-      minValue: coupon.minValue || 0,
-      status: coupon.status === "active"
+      discount_type: coupon.discount_type as "percentage" | "fixed",
+      discount_value: coupon.discount_value,
+      expires_at: coupon.expires_at ? coupon.expires_at.split('T')[0] : "",
+      max_uses: coupon.max_uses || 0,
+      min_order_value: coupon.min_order_value || 0,
+      is_active: coupon.is_active
     });
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
-    // Check for duplicate code
-    const isDuplicate = coupons.some(c => 
-      c.code.toUpperCase() === formData.code.toUpperCase() && 
-      c.id !== editingCoupon?.id
-    );
-    
-    if (isDuplicate) {
-      alert("Este código de cupom já existe!");
-      return;
-    }
+  const handleSave = async () => {
+    const couponData = {
+      code: formData.code,
+      discount_type: formData.discount_type,
+      discount_value: formData.discount_value,
+      expires_at: formData.expires_at || undefined,
+      max_uses: formData.max_uses > 0 ? formData.max_uses : undefined,
+      min_order_value: formData.min_order_value > 0 ? formData.min_order_value : undefined,
+      is_active: formData.is_active
+    };
 
     if (editingCoupon) {
-      setCoupons(coupons.map(c => 
-        c.id === editingCoupon.id 
-          ? { 
-              ...c, 
-              ...formData, 
-              code: formData.code.toUpperCase(),
-              status: formData.status ? "active" : "inactive" 
-            }
-          : c
-      ));
+      await updateCoupon.mutateAsync({ id: editingCoupon.id, ...couponData });
     } else {
-      const newCoupon: Coupon = {
-        id: Date.now().toString(),
-        code: formData.code.toUpperCase(),
-        type: formData.type,
-        value: formData.value,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        usageLimit: formData.usageLimit,
-        usageCount: 0,
-        application: formData.application,
-        applicationId: formData.application !== "all" ? formData.applicationId : undefined,
-        minValue: formData.minValue > 0 ? formData.minValue : undefined,
-        status: formData.status ? "active" : "inactive"
-      };
-      setCoupons([newCoupon, ...coupons]);
+      await createCoupon.mutateAsync(couponData);
     }
     setIsModalOpen(false);
     resetForm();
   };
 
-  const handleDelete = (id: string) => {
-    setCoupons(coupons.filter(c => c.id !== id));
+  const handleDelete = () => {
+    if (deleteCouponId) {
+      deleteCoupon.mutate(deleteCouponId);
+      setDeleteCouponId(null);
+    }
   };
 
   const filteredCoupons = coupons.filter(coupon => {
     const matchesSearch = coupon.code.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || coupon.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "active" && coupon.is_active) ||
+      (statusFilter === "inactive" && !coupon.is_active);
     return matchesSearch && matchesStatus;
   });
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "-";
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
-  const isExpired = (endDate: string) => {
-    return new Date(endDate) < new Date();
+  const isExpired = (expiresAt?: string) => {
+    if (!expiresAt) return false;
+    return new Date(expiresAt) < new Date();
   };
+
+  const isSaving = createCoupon.isPending || updateCoupon.isPending;
 
   return (
     <DashboardLayout>
@@ -253,7 +190,11 @@ const Coupons = () => {
       </div>
 
       {/* Coupons List */}
-      {filteredCoupons.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : filteredCoupons.length === 0 ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -278,13 +219,13 @@ const Coupons = () => {
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ delay: index * 0.05 }}
                 className={`bg-card rounded-xl border overflow-hidden ${
-                  isExpired(coupon.endDate) || coupon.status === "inactive"
+                  isExpired(coupon.expires_at) || !coupon.is_active
                     ? "border-border opacity-70"
                     : "border-primary/20 hover:border-primary/40"
                 } transition-all`}
               >
                 <div className={`h-2 ${
-                  coupon.status === "active" && !isExpired(coupon.endDate)
+                  coupon.is_active && !isExpired(coupon.expires_at)
                     ? "bg-gradient-primary"
                     : "bg-muted"
                 }`} />
@@ -292,9 +233,9 @@ const Coupons = () => {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        coupon.type === "percentage" ? "bg-primary/10" : "bg-accent/10"
+                        coupon.discount_type === "percentage" ? "bg-primary/10" : "bg-accent/10"
                       }`}>
-                        {coupon.type === "percentage" ? (
+                        {coupon.discount_type === "percentage" ? (
                           <Percent className="w-5 h-5 text-primary" />
                         ) : (
                           <DollarSign className="w-5 h-5 text-accent" />
@@ -303,7 +244,9 @@ const Coupons = () => {
                       <div>
                         <p className="font-bold text-foreground font-mono">{coupon.code}</p>
                         <p className="text-sm text-muted-foreground">
-                          {coupon.type === "percentage" ? `${coupon.value}% off` : `R$ ${coupon.value} off`}
+                          {coupon.discount_type === "percentage" 
+                            ? `${coupon.discount_value}% off` 
+                            : `R$ ${(coupon.discount_value / 100).toFixed(2)} off`}
                         </p>
                       </div>
                     </div>
@@ -313,13 +256,13 @@ const Coupons = () => {
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="bg-card border-border">
                         <DropdownMenuItem onClick={() => openEditModal(coupon)}>
                           <Edit className="w-4 h-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          onClick={() => handleDelete(coupon.id)}
+                          onClick={() => setDeleteCouponId(coupon.id)}
                           className="text-destructive"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
@@ -330,37 +273,42 @@ const Coupons = () => {
                   </div>
 
                   <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span>{formatDate(coupon.startDate)} - {formatDate(coupon.endDate)}</span>
-                    </div>
+                    {coupon.expires_at && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="w-4 h-4" />
+                        <span>Expira em: {formatDate(coupon.expires_at)}</span>
+                      </div>
+                    )}
                     
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Uso:</span>
-                      <span className="font-medium text-foreground">
-                        {coupon.usageCount} / {coupon.usageLimit}
-                      </span>
-                    </div>
+                    {coupon.max_uses && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Uso:</span>
+                        <span className="font-medium text-foreground">
+                          {coupon.uses_count} / {coupon.max_uses}
+                        </span>
+                      </div>
+                    )}
 
-                    <div className="w-full bg-secondary rounded-full h-2">
-                      <div 
-                        className="bg-primary rounded-full h-2 transition-all"
-                        style={{ width: `${(coupon.usageCount / coupon.usageLimit) * 100}%` }}
-                      />
-                    </div>
+                    {coupon.max_uses && (
+                      <div className="w-full bg-secondary rounded-full h-2">
+                        <div 
+                          className="bg-primary rounded-full h-2 transition-all"
+                          style={{ width: `${Math.min((coupon.uses_count / coupon.max_uses) * 100, 100)}%` }}
+                        />
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between pt-2">
                       <span className="text-xs text-muted-foreground">
-                        {coupon.application === "all" ? "Todos os produtos" : 
-                         coupon.application === "product" ? "Produto específico" : "Categoria"}
+                        {coupon.min_order_value ? `Mín: R$ ${(coupon.min_order_value / 100).toFixed(2)}` : "Sem mínimo"}
                       </span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        coupon.status === "active" && !isExpired(coupon.endDate)
+                        coupon.is_active && !isExpired(coupon.expires_at)
                           ? "bg-success/10 text-success" 
                           : "bg-muted text-muted-foreground"
                       }`}>
-                        {isExpired(coupon.endDate) ? "Expirado" : 
-                         coupon.status === "active" ? "Ativo" : "Inativo"}
+                        {isExpired(coupon.expires_at) ? "Expirado" : 
+                         coupon.is_active ? "Ativo" : "Inativo"}
                       </span>
                     </div>
                   </div>
@@ -394,9 +342,9 @@ const Coupons = () => {
               <Label>Tipo de Desconto</Label>
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <button
-                  onClick={() => setFormData({ ...formData, type: "percentage" })}
+                  onClick={() => setFormData({ ...formData, discount_type: "percentage" })}
                   className={`p-3 rounded-xl border-2 transition-all text-left ${
-                    formData.type === "percentage" 
+                    formData.discount_type === "percentage" 
                       ? "border-primary bg-primary/5" 
                       : "border-border hover:border-primary/30"
                   }`}
@@ -405,9 +353,9 @@ const Coupons = () => {
                   <p className="font-medium text-foreground text-sm">Porcentagem</p>
                 </button>
                 <button
-                  onClick={() => setFormData({ ...formData, type: "fixed" })}
+                  onClick={() => setFormData({ ...formData, discount_type: "fixed" })}
                   className={`p-3 rounded-xl border-2 transition-all text-left ${
-                    formData.type === "fixed" 
+                    formData.discount_type === "fixed" 
                       ? "border-primary bg-primary/5" 
                       : "border-border hover:border-primary/30"
                   }`}
@@ -420,77 +368,47 @@ const Coupons = () => {
             
             <div>
               <Label htmlFor="value">
-                Valor {formData.type === "percentage" ? "(%)" : "(R$)"}
+                Valor {formData.discount_type === "percentage" ? "(%)" : "(R$)"}
               </Label>
               <Input
                 id="value"
                 type="number"
-                value={formData.value}
-                onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                value={formData.discount_value}
+                onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
                 min="0"
-                max={formData.type === "percentage" ? 100 : undefined}
+                max={formData.discount_type === "percentage" ? 100 : undefined}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="startDate">Data Início</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="endDate">Data Fim</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={formData.endDate}
-                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                />
-              </div>
+            <div>
+              <Label htmlFor="expires_at">Data de Expiração (opcional)</Label>
+              <Input
+                id="expires_at"
+                type="date"
+                value={formData.expires_at}
+                onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+              />
             </div>
 
             <div>
-              <Label htmlFor="usageLimit">Limite de Uso</Label>
+              <Label htmlFor="max_uses">Limite de Uso (0 = ilimitado)</Label>
               <Input
-                id="usageLimit"
+                id="max_uses"
                 type="number"
-                value={formData.usageLimit}
-                onChange={(e) => setFormData({ ...formData, usageLimit: parseInt(e.target.value) || 0 })}
+                value={formData.max_uses}
+                onChange={(e) => setFormData({ ...formData, max_uses: parseInt(e.target.value) || 0 })}
                 min="0"
               />
             </div>
 
             <div>
-              <Label>Aplicação</Label>
-              <Select 
-                value={formData.application} 
-                onValueChange={(value: "all" | "product" | "category") => 
-                  setFormData({ ...formData, application: value })
-                }
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os produtos</SelectItem>
-                  <SelectItem value="product">Produto específico</SelectItem>
-                  <SelectItem value="category">Categoria específica</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="minValue">Valor Mínimo (opcional)</Label>
+              <Label htmlFor="min_order_value">Valor Mínimo do Pedido (centavos)</Label>
               <Input
-                id="minValue"
+                id="min_order_value"
                 type="number"
-                value={formData.minValue}
-                onChange={(e) => setFormData({ ...formData, minValue: parseFloat(e.target.value) || 0 })}
-                placeholder="R$ 0,00"
+                value={formData.min_order_value}
+                onChange={(e) => setFormData({ ...formData, min_order_value: parseFloat(e.target.value) || 0 })}
+                placeholder="0"
                 min="0"
               />
             </div>
@@ -498,11 +416,11 @@ const Coupons = () => {
             <div className="flex items-center justify-between">
               <div>
                 <Label>Status</Label>
-                <p className="text-sm text-muted-foreground">Cupom ativo</p>
+                <p className="text-sm text-muted-foreground">Cupom ativo e disponível</p>
               </div>
               <Switch
-                checked={formData.status}
-                onCheckedChange={(checked) => setFormData({ ...formData, status: checked })}
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
             </div>
           </div>
@@ -511,12 +429,30 @@ const Coupons = () => {
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={!formData.code || formData.value <= 0}>
-              {editingCoupon ? "Salvar" : "Criar Cupom"}
+            <Button onClick={handleSave} disabled={!formData.code || isSaving}>
+              {isSaving ? "Salvando..." : editingCoupon ? "Salvar" : "Criar Cupom"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteCouponId} onOpenChange={() => setDeleteCouponId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir cupom?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O cupom será removido permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

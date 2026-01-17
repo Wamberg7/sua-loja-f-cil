@@ -6,7 +6,8 @@ import {
   Edit, 
   Trash2, 
   FolderTree,
-  MoreVertical
+  MoreVertical,
+  Loader2
 } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -26,37 +27,40 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-interface Category {
-  id: string;
-  name: string;
-  description: string;
-  status: "active" | "inactive";
-  productCount: number;
-  createdAt: string;
-}
-
-const mockCategories: Category[] = [
-  { id: "1", name: "Cursos Online", description: "Cursos e treinamentos em vídeo", status: "active", productCount: 5, createdAt: "2024-01-15" },
-  { id: "2", name: "E-books", description: "Livros digitais e guias em PDF", status: "active", productCount: 8, createdAt: "2024-01-10" },
-  { id: "3", name: "Templates", description: "Modelos prontos para uso", status: "active", productCount: 3, createdAt: "2024-01-05" },
-  { id: "4", name: "Software", description: "Aplicativos e ferramentas digitais", status: "inactive", productCount: 0, createdAt: "2024-01-01" },
-];
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/useCategories";
+import { useProducts } from "@/hooks/useProducts";
+import { Category } from "@/lib/types";
 
 const Categories = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
+  
+  const { data: categories = [], isLoading } = useCategories();
+  const { data: products = [] } = useProducts();
+  const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
+  const deleteCategory = useDeleteCategory();
   
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    status: true
+    is_active: true
   });
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", status: true });
+    setFormData({ name: "", description: "", is_active: true });
     setEditingCategory(null);
   };
 
@@ -69,41 +73,47 @@ const Categories = () => {
     setEditingCategory(category);
     setFormData({
       name: category.name,
-      description: category.description,
-      status: category.status === "active"
+      description: category.description || "",
+      is_active: category.is_active
     });
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editingCategory) {
-      setCategories(categories.map(c => 
-        c.id === editingCategory.id 
-          ? { ...c, name: formData.name, description: formData.description, status: formData.status ? "active" : "inactive" }
-          : c
-      ));
-    } else {
-      const newCategory: Category = {
-        id: Date.now().toString(),
+      await updateCategory.mutateAsync({
+        id: editingCategory.id,
         name: formData.name,
         description: formData.description,
-        status: formData.status ? "active" : "inactive",
-        productCount: 0,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setCategories([newCategory, ...categories]);
+        is_active: formData.is_active
+      });
+    } else {
+      await createCategory.mutateAsync({
+        name: formData.name,
+        description: formData.description,
+        is_active: formData.is_active
+      });
     }
     setIsModalOpen(false);
     resetForm();
   };
 
-  const handleDelete = (id: string) => {
-    setCategories(categories.filter(c => c.id !== id));
+  const handleDelete = () => {
+    if (deleteCategoryId) {
+      deleteCategory.mutate(deleteCategoryId);
+      setDeleteCategoryId(null);
+    }
+  };
+
+  const getProductCount = (categoryId: string) => {
+    return products.filter(p => p.category_id === categoryId).length;
   };
 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const isSaving = createCategory.isPending || updateCategory.isPending;
 
   return (
     <DashboardLayout>
@@ -131,7 +141,11 @@ const Categories = () => {
       </div>
 
       {/* Categories List */}
-      {filteredCategories.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : filteredCategories.length === 0 ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -180,15 +194,15 @@ const Categories = () => {
                       {category.description || "-"}
                     </td>
                     <td className="py-4 px-4">
-                      <span className="font-medium text-foreground">{category.productCount}</span>
+                      <span className="font-medium text-foreground">{getProductCount(category.id)}</span>
                     </td>
                     <td className="py-4 px-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        category.status === "active" 
+                        category.is_active 
                           ? "bg-success/10 text-success" 
                           : "bg-muted text-muted-foreground"
                       }`}>
-                        {category.status === "active" ? "Ativa" : "Inativa"}
+                        {category.is_active ? "Ativa" : "Inativa"}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-right">
@@ -198,13 +212,13 @@ const Categories = () => {
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="bg-card border-border">
                           <DropdownMenuItem onClick={() => openEditModal(category)}>
                             <Edit className="w-4 h-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => handleDelete(category.id)}
+                            onClick={() => setDeleteCategoryId(category.id)}
                             className="text-destructive"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
@@ -256,8 +270,8 @@ const Categories = () => {
                 <p className="text-sm text-muted-foreground">Categoria visível na loja</p>
               </div>
               <Switch
-                checked={formData.status}
-                onCheckedChange={(checked) => setFormData({ ...formData, status: checked })}
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
             </div>
           </div>
@@ -266,12 +280,30 @@ const Categories = () => {
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={!formData.name}>
-              {editingCategory ? "Salvar" : "Criar Categoria"}
+            <Button onClick={handleSave} disabled={!formData.name || isSaving}>
+              {isSaving ? "Salvando..." : editingCategory ? "Salvar" : "Criar Categoria"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteCategoryId} onOpenChange={() => setDeleteCategoryId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A categoria será removida permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
