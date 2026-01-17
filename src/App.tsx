@@ -19,11 +19,13 @@ import Goals from "./pages/Goals";
 import Plans from "./pages/Plans";
 import Customers from "./pages/Customers";
 import Settings from "./pages/Settings";
+import Disputes from "./pages/Disputes";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 
 // Admin Pages
+import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminStores from "./pages/admin/AdminStores";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -52,6 +54,7 @@ const App = () => (
             <Route path="/privacidade" element={<PrivacyPolicy />} />
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Register />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
             
             {/* Protected Seller Routes */}
             <Route path="/dashboard" element={
@@ -102,6 +105,11 @@ const App = () => (
             <Route path="/dashboard/configuracoes" element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/contestacoes" element={
+              <ProtectedRoute>
+                <Disputes />
               </ProtectedRoute>
             } />
             
