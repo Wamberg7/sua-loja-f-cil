@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,94 +22,117 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Search, Eye, CheckCircle, XCircle, Shield, AlertTriangle } from "lucide-react";
+import { Search, Eye, CheckCircle, XCircle, Shield, AlertTriangle, Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-const walletRequests = [
-  {
-    id: 1,
-    store: "Loja Digital Pro",
-    owner: "João Silva",
-    cpf: "123.456.789-00",
-    email: "joao@email.com",
-    pixKey: "123.456.789-00",
-    pixType: "CPF",
-    status: "pending",
-    requestDate: "15/01/2024 10:30",
-    documents: true,
-  },
-  {
-    id: 2,
-    store: "E-books Master",
-    owner: "Maria Santos",
-    cpf: "987.654.321-00",
-    email: "maria@email.com",
-    pixKey: "maria@email.com",
-    pixType: "Email",
-    status: "pending",
-    requestDate: "14/01/2024 15:45",
-    documents: true,
-  },
-  {
-    id: 3,
-    store: "Cursos Online",
-    owner: "Pedro Costa",
-    cpf: "456.789.123-00",
-    email: "pedro@email.com",
-    pixKey: "456.789.123-00",
-    pixType: "CPF",
-    status: "rejected",
-    requestDate: "13/01/2024 09:20",
-    documents: false,
-    rejectReason: "CPF não confere com dados informados",
-  },
-  {
-    id: 4,
-    store: "Templates Hub",
-    owner: "Ana Oliveira",
-    cpf: "321.654.987-00",
-    email: "ana@email.com",
-    pixKey: "+5511999999999",
-    pixType: "Telefone",
-    status: "approved",
-    requestDate: "12/01/2024 14:00",
-    documents: true,
-    approvedDate: "12/01/2024 16:30",
-  },
-];
+interface WalletWithDetails {
+  id: string;
+  store_id: string;
+  is_approved: boolean;
+  available: number;
+  pending: number;
+  reserved: number;
+  created_at: string;
+  store?: {
+    id: string;
+    name: string;
+    user_id: string;
+  };
+  profile?: {
+    full_name: string | null;
+    email: string;
+  };
+}
 
 export default function AdminWalletApproval() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRequest, setSelectedRequest] = useState<typeof walletRequests[0] | null>(null);
+  const [selectedWallet, setSelectedWallet] = useState<WalletWithDetails | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
-  const pendingRequests = walletRequests.filter((r) => r.status === "pending");
+  const { data: wallets, isLoading } = useQuery({
+    queryKey: ['wallets-approval'],
+    queryFn: async () => {
+      const { data: walletsData, error } = await supabase
+        .from('wallets')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const filteredRequests = walletRequests.filter(
-    (request) =>
-      request.store.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.cpf.includes(searchTerm)
-  );
+      if (error) throw error;
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <Badge className="bg-emerald-500/10 text-emerald-500">Aprovado</Badge>;
-      case "pending":
-        return <Badge className="bg-amber-500/10 text-amber-500">Pendente</Badge>;
-      case "rejected":
-        return <Badge className="bg-red-500/10 text-red-500">Rejeitado</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+      // Get store and profile info
+      const enrichedWallets = await Promise.all(
+        (walletsData || []).map(async (wallet) => {
+          const { data: storeData } = await supabase
+            .from('stores')
+            .select('id, name, user_id')
+            .eq('id', wallet.store_id)
+            .maybeSingle();
+
+          let profileData = null;
+          if (storeData) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('user_id', storeData.user_id)
+              .maybeSingle();
+            profileData = profile;
+          }
+
+          return {
+            ...wallet,
+            store: storeData,
+            profile: profileData,
+          } as WalletWithDetails;
+        })
+      );
+
+      return enrichedWallets;
+    },
+  });
+
+  const approveWallet = useMutation({
+    mutationFn: async (walletId: string) => {
+      const { error } = await supabase
+        .from('wallets')
+        .update({ is_approved: true })
+        .eq('id', walletId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wallets-approval'] });
+      toast.success("Carteira aprovada!");
+      setSelectedWallet(null);
+    },
+    onError: (error) => {
+      toast.error("Erro: " + error.message);
+    },
+  });
+
+  const pendingWallets = wallets?.filter(w => !w.is_approved) || [];
+
+  const filteredWallets = wallets?.filter(
+    (wallet) =>
+      wallet.store?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      wallet.profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      wallet.profile?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  const getStatusBadge = (isApproved: boolean) => {
+    if (isApproved) {
+      return <Badge className="bg-emerald-500/10 text-emerald-500">Aprovado</Badge>;
     }
+    return <Badge className="bg-amber-500/10 text-amber-500">Pendente</Badge>;
   };
 
-  const validateCpfMatch = (cpf: string, pixKey: string, pixType: string) => {
-    if (pixType === "CPF") {
-      return cpf === pixKey;
+  const handleApprove = () => {
+    if (selectedWallet) {
+      approveWallet.mutate(selectedWallet.id);
     }
-    return true;
   };
 
   return (
@@ -122,7 +147,7 @@ export default function AdminWalletApproval() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <span className="font-semibold text-amber-500">{pendingRequests.length} pendentes</span>
+              <span className="font-semibold text-amber-500">{pendingWallets.length} pendentes</span>
             </div>
           </div>
         </div>
@@ -133,7 +158,7 @@ export default function AdminWalletApproval() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Buscar por loja, proprietário ou CPF..."
+                placeholder="Buscar por loja, proprietário ou email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -142,85 +167,73 @@ export default function AdminWalletApproval() {
           </CardContent>
         </Card>
 
-        {/* Requests Table */}
+        {/* Wallets Table */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle>Solicitações de Carteira</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Loja</TableHead>
-                  <TableHead>Proprietário</TableHead>
-                  <TableHead>CPF</TableHead>
-                  <TableHead>Chave Pix</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRequests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell className="font-medium">{request.store}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p>{request.owner}</p>
-                        <p className="text-sm text-muted-foreground">{request.email}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono">{request.cpf}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-mono">{request.pixKey}</p>
-                        <p className="text-sm text-muted-foreground">{request.pixType}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{request.requestDate}</TableCell>
-                    <TableCell>{getStatusBadge(request.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setSelectedRequest(request)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredWallets.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Nenhuma carteira encontrada</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Loja</TableHead>
+                    <TableHead>Proprietário</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredWallets.map((wallet) => (
+                    <TableRow key={wallet.id}>
+                      <TableCell className="font-medium">{wallet.store?.name || "—"}</TableCell>
+                      <TableCell>{wallet.profile?.full_name || "—"}</TableCell>
+                      <TableCell>{wallet.profile?.email || "—"}</TableCell>
+                      <TableCell>
+                        {format(new Date(wallet.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(wallet.is_approved)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSelectedWallet(wallet)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
-        {/* Request Details Dialog */}
-        <Dialog open={!!selectedRequest && !showRejectDialog} onOpenChange={() => setSelectedRequest(null)}>
+        {/* Wallet Details Dialog */}
+        <Dialog open={!!selectedWallet && !showRejectDialog} onOpenChange={() => setSelectedWallet(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-primary" />
-                Verificação de Dados - {selectedRequest?.store}
+                Verificação de Dados - {selectedWallet?.store?.name}
               </DialogTitle>
             </DialogHeader>
-            {selectedRequest && (
+            {selectedWallet && (
               <div className="space-y-6">
-                {/* CPF Match Warning */}
-                {!validateCpfMatch(selectedRequest.cpf, selectedRequest.pixKey, selectedRequest.pixType) && (
-                  <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <div className="flex items-center gap-2 text-red-500">
-                      <AlertTriangle className="w-5 h-5" />
-                      <span className="font-semibold">ATENÇÃO: CPF não confere com a chave Pix!</span>
-                    </div>
-                  </div>
-                )}
-
-                {validateCpfMatch(selectedRequest.cpf, selectedRequest.pixKey, selectedRequest.pixType) && selectedRequest.pixType === "CPF" && (
+                {selectedWallet.is_approved && (
                   <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                     <div className="flex items-center gap-2 text-emerald-500">
                       <CheckCircle className="w-5 h-5" />
-                      <span className="font-semibold">CPF confere com a chave Pix</span>
+                      <span className="font-semibold">Carteira já aprovada</span>
                     </div>
                   </div>
                 )}
@@ -231,44 +244,31 @@ export default function AdminWalletApproval() {
                   <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/50">
                     <div className="space-y-1">
                       <p className="text-sm text-muted-foreground">Nome Completo</p>
-                      <p className="font-medium">{selectedRequest.owner}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">CPF</p>
-                      <p className="font-mono font-medium">{selectedRequest.cpf}</p>
+                      <p className="font-medium">{selectedWallet.profile?.full_name || "—"}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm text-muted-foreground">Email</p>
-                      <p className="font-medium">{selectedRequest.email}</p>
+                      <p className="font-medium">{selectedWallet.profile?.email || "—"}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm text-muted-foreground">Loja</p>
-                      <p className="font-medium">{selectedRequest.store}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Pix Data */}
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-foreground">Dados do Pix</h4>
-                  <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/50">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Tipo de Chave</p>
-                      <p className="font-medium">{selectedRequest.pixType}</p>
+                      <p className="font-medium">{selectedWallet.store?.name || "—"}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">Chave Pix</p>
-                      <p className="font-mono font-medium">{selectedRequest.pixKey}</p>
+                      <p className="text-sm text-muted-foreground">Data de Criação</p>
+                      <p className="font-medium">
+                        {format(new Date(selectedWallet.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Actions */}
-                {selectedRequest.status === "pending" && (
+                {!selectedWallet.is_approved && (
                   <div className="flex justify-end gap-2 pt-4 border-t border-border">
                     <Button
                       variant="outline"
-                      onClick={() => setSelectedRequest(null)}
+                      onClick={() => setSelectedWallet(null)}
                     >
                       Cancelar
                     </Button>
@@ -279,16 +279,19 @@ export default function AdminWalletApproval() {
                       <XCircle className="w-4 h-4 mr-2" />
                       Rejeitar
                     </Button>
-                    <Button className="bg-emerald-500 hover:bg-emerald-600">
+                    <Button 
+                      className="bg-emerald-500 hover:bg-emerald-600"
+                      onClick={handleApprove}
+                    >
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Aprovar Carteira
                     </Button>
                   </div>
                 )}
 
-                {selectedRequest.status !== "pending" && (
+                {selectedWallet.is_approved && (
                   <div className="flex justify-end">
-                    <Button variant="outline" onClick={() => setSelectedRequest(null)}>
+                    <Button variant="outline" onClick={() => setSelectedWallet(null)}>
                       Fechar
                     </Button>
                   </div>
@@ -318,7 +321,7 @@ export default function AdminWalletApproval() {
                 <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
                   Cancelar
                 </Button>
-                <Button variant="destructive" onClick={() => { setShowRejectDialog(false); setSelectedRequest(null); }}>
+                <Button variant="destructive" onClick={() => { setShowRejectDialog(false); setSelectedWallet(null); }}>
                   Confirmar Rejeição
                 </Button>
               </div>

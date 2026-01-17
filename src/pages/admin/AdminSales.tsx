@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,100 +27,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Eye, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
-
-const sales = [
-  {
-    id: "#VND-001",
-    store: "Loja Digital Pro",
-    customer: "Carlos Mendes",
-    email: "carlos@email.com",
-    product: "Curso de Marketing",
-    variation: "Completo",
-    grossValue: "R$ 497,00",
-    platformFee: "R$ 15,71",
-    netValue: "R$ 481,29",
-    status: "approved",
-    paymentMethod: "Cartão",
-    date: "15/01/2024 14:30",
-  },
-  {
-    id: "#VND-002",
-    store: "E-books Master",
-    customer: "Lucia Ferreira",
-    email: "lucia@email.com",
-    product: "E-book Finanças",
-    variation: "-",
-    grossValue: "R$ 47,00",
-    platformFee: "R$ 2,21",
-    netValue: "R$ 44,79",
-    status: "approved",
-    paymentMethod: "Pix",
-    date: "15/01/2024 12:15",
-  },
-  {
-    id: "#VND-003",
-    store: "Cursos Online",
-    customer: "Roberto Lima",
-    email: "roberto@email.com",
-    product: "Template Premium",
-    variation: "Licença Pro",
-    grossValue: "R$ 197,00",
-    platformFee: "R$ 6,71",
-    netValue: "R$ 190,29",
-    status: "pending",
-    paymentMethod: "Pix",
-    date: "14/01/2024 18:45",
-  },
-  {
-    id: "#VND-004",
-    store: "Templates Hub",
-    customer: "Amanda Costa",
-    email: "amanda@email.com",
-    product: "Pack de Icons",
-    variation: "-",
-    grossValue: "R$ 29,00",
-    platformFee: "R$ 1,67",
-    netValue: "R$ 27,33",
-    status: "approved",
-    paymentMethod: "Cartão",
-    date: "14/01/2024 10:20",
-  },
-  {
-    id: "#VND-005",
-    store: "Loja Digital Pro",
-    customer: "Felipe Santos",
-    email: "felipe@email.com",
-    product: "Mentoria Individual",
-    variation: "3 Meses",
-    grossValue: "R$ 1.997,00",
-    platformFee: "R$ 60,71",
-    netValue: "R$ 1.936,29",
-    status: "refunded",
-    paymentMethod: "Cartão",
-    date: "13/01/2024 09:00",
-  },
-];
-
-const stats = [
-  { title: "Vendas Hoje", value: "R$ 12.450", icon: ShoppingCart },
-  { title: "Taxa Arrecadada", value: "R$ 456,78", icon: DollarSign },
-  { title: "Ticket Médio", value: "R$ 287,00", icon: TrendingUp },
-];
+import { Search, Eye, ShoppingCart, DollarSign, TrendingUp, Loader2 } from "lucide-react";
+import { useAllSales, SaleWithDetails } from "@/hooks/useSales";
 
 export default function AdminSales() {
+  const { sales, isLoading, calculateFee, stats } = useAllSales();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedSale, setSelectedSale] = useState<typeof sales[0] | null>(null);
+  const [selectedSale, setSelectedSale] = useState<SaleWithDetails | null>(null);
 
   const filteredSales = sales.filter((sale) => {
     const matchesSearch =
-      sale.store.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sale.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sale.store?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sale.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sale.customer_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sale.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || sale.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value / 100);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -128,10 +61,18 @@ export default function AdminSales() {
         return <Badge className="bg-amber-500/10 text-amber-500">Pendente</Badge>;
       case "refunded":
         return <Badge className="bg-red-500/10 text-red-500">Reembolsado</Badge>;
+      case "cancelled":
+        return <Badge className="bg-red-500/10 text-red-500">Cancelado</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  const statsCards = [
+    { title: "Vendas Hoje", value: formatCurrency(stats.totalToday), icon: ShoppingCart },
+    { title: "Taxa Arrecadada", value: formatCurrency(stats.feesToday), icon: DollarSign },
+    { title: "Ticket Médio", value: formatCurrency(stats.avgTicket), icon: TrendingUp },
+  ];
 
   return (
     <AdminLayout>
@@ -144,7 +85,7 @@ export default function AdminSales() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {stats.map((stat) => (
+          {statsCards.map((stat) => (
             <Card key={stat.title} className="bg-card border-border">
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
@@ -195,56 +136,68 @@ export default function AdminSales() {
             <CardTitle>Histórico de Vendas</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Loja</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Valor Bruto</TableHead>
-                  <TableHead>Taxa</TableHead>
-                  <TableHead>Valor Líquido</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSales.map((sale) => (
-                  <TableRow key={sale.id}>
-                    <TableCell className="font-medium">{sale.id}</TableCell>
-                    <TableCell>{sale.store}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p>{sale.customer}</p>
-                        <p className="text-sm text-muted-foreground">{sale.email}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p>{sale.product}</p>
-                        {sale.variation !== "-" && (
-                          <p className="text-sm text-muted-foreground">{sale.variation}</p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{sale.grossValue}</TableCell>
-                    <TableCell className="text-primary">{sale.platformFee}</TableCell>
-                    <TableCell>{sale.netValue}</TableCell>
-                    <TableCell>{getStatusBadge(sale.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setSelectedSale(sale)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredSales.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhuma venda encontrada
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Loja</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Valor Bruto</TableHead>
+                    <TableHead>Taxa</TableHead>
+                    <TableHead>Valor Líquido</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredSales.map((sale) => {
+                    const fee = calculateFee(sale.total);
+                    const netValue = sale.total - fee;
+
+                    return (
+                      <TableRow key={sale.id}>
+                        <TableCell className="font-mono font-medium">
+                          #{sale.id.slice(0, 8)}
+                        </TableCell>
+                        <TableCell>{sale.store?.name || "—"}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p>{sale.customer_name || "—"}</p>
+                            <p className="text-sm text-muted-foreground">{sale.customer_email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatCurrency(sale.total)}</TableCell>
+                        <TableCell className="text-primary">{formatCurrency(fee)}</TableCell>
+                        <TableCell>{formatCurrency(netValue)}</TableCell>
+                        <TableCell>{getStatusBadge(sale.status)}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {format(new Date(sale.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSelectedSale(sale)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -252,58 +205,72 @@ export default function AdminSales() {
         <Dialog open={!!selectedSale} onOpenChange={() => setSelectedSale(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Detalhes da Venda {selectedSale?.id}</DialogTitle>
+              <DialogTitle>Detalhes da Venda #{selectedSale?.id.slice(0, 8)}</DialogTitle>
             </DialogHeader>
             {selectedSale && (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Loja</p>
-                    <p className="font-medium">{selectedSale.store}</p>
+                    <p className="font-medium">{selectedSale.store?.name || "—"}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Data</p>
-                    <p className="font-medium">{selectedSale.date}</p>
+                    <p className="font-medium">
+                      {format(new Date(selectedSale.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Cliente</p>
-                    <p className="font-medium">{selectedSale.customer}</p>
+                    <p className="font-medium">{selectedSale.customer_name || "—"}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{selectedSale.email}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Produto</p>
-                    <p className="font-medium">{selectedSale.product}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Variação</p>
-                    <p className="font-medium">{selectedSale.variation}</p>
+                    <p className="font-medium">{selectedSale.customer_email}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Método de Pagamento</p>
-                    <p className="font-medium">{selectedSale.paymentMethod}</p>
+                    <p className="font-medium">{selectedSale.payment_method || "—"}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Status</p>
                     {getStatusBadge(selectedSale.status)}
                   </div>
                 </div>
+
+                {/* Items */}
+                {selectedSale.items && selectedSale.items.length > 0 && (
+                  <div className="border-t border-border pt-4">
+                    <h4 className="font-semibold mb-3">Itens do Pedido</h4>
+                    <div className="space-y-2">
+                      {selectedSale.items.map((item) => (
+                        <div key={item.id} className="flex justify-between p-2 bg-muted/50 rounded">
+                          <span>{item.product_name} x{item.quantity}</span>
+                          <span className="font-medium">{formatCurrency(item.price * item.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="border-t border-border pt-4">
                   <h4 className="font-semibold mb-4">Financeiro</h4>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="p-4 rounded-lg bg-muted/50">
                       <p className="text-sm text-muted-foreground">Valor Bruto</p>
-                      <p className="text-xl font-bold">{selectedSale.grossValue}</p>
+                      <p className="text-xl font-bold">{formatCurrency(selectedSale.total)}</p>
                     </div>
                     <div className="p-4 rounded-lg bg-primary/10">
                       <p className="text-sm text-muted-foreground">Taxa Plataforma</p>
-                      <p className="text-xl font-bold text-primary">{selectedSale.platformFee}</p>
+                      <p className="text-xl font-bold text-primary">
+                        {formatCurrency(calculateFee(selectedSale.total))}
+                      </p>
                     </div>
                     <div className="p-4 rounded-lg bg-emerald-500/10">
                       <p className="text-sm text-muted-foreground">Valor Líquido</p>
-                      <p className="text-xl font-bold text-emerald-500">{selectedSale.netValue}</p>
+                      <p className="text-xl font-bold text-emerald-500">
+                        {formatCurrency(selectedSale.total - calculateFee(selectedSale.total))}
+                      </p>
                     </div>
                   </div>
                 </div>
